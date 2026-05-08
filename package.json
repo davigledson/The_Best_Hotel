@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@refinedev/core": "^5.0.12",
+    "@refinedev/nextjs-router": "^7.0.5",
+    "@refinedev/simple-rest": "^6.0.1"
+  }
+}
