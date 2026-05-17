@@ -1,15 +1,8 @@
-export function Dashboard() {
-  return <div className="text-zinc-800 text-xl font-medium">Dashboard</div>
-}
+export { Dashboard } from './Dashboard'
 
 
-export function CheckIn() {
-  return <div className="text-zinc-800 text-xl font-medium">Check-in</div>
-}
-
-export function CheckOut() {
-  return <div className="text-zinc-800 text-xl font-medium">Check-out</div>
-}
+export { CheckIn } from './Checkin.tsx'
+export { CheckOut } from './Checkout.tsx'
 
 // Reservas and Quartos are exported from their respective files below
 
@@ -28,3 +21,4 @@ export { Usuarios } from './Usuarios.tsx'
 export { Reservas } from './Reservas.tsx'
 export { Quartos } from './Quartos.tsx'
 export { Estadias } from './Estadias.tsx'
+
