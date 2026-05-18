@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { LogOut, BedDouble, ChevronDown, ShoppingBasket, DollarSign, CalendarCheck } from 'lucide-react'
-import { useFindAll1 } from '../services/room-controller/room-controller'
-import { useFindAll3 } from '../services/employee-controller/employee-controller'
-import { useCheckOut, useFindAll6, getFindAll6QueryKey } from '../services/stay-controller/stay-controller'
-import { getFindAll5QueryKey } from '../services/booking-controller/booking-controller'
+import { useFindAll1 } from '../../services/room-controller/room-controller'
+import { useFindAll3 } from '../../services/employee-controller/employee-controller'
+import { useCheckOut, useFindAll6, getFindAll6QueryKey } from '../../services/stay-controller/stay-controller'
+import { getFindAll5QueryKey } from '../../services/booking-controller/booking-controller'
 
 function getId(obj: any): string {
   const id = obj?.id as any

@@ -7,8 +7,8 @@ import {
   useUpdate2,
   useDelete2,
   getFindAll2QueryKey,
-} from '../services/product-controller/product-controller'
-import type { Product } from '../services/openAPIDefinition.schemas'
+} from '../../services/product-controller/product-controller'
+import type { Product } from '../../services/openAPIDefinition.schemas'
 
 const emptyForm: Product = { name: '', category: '', price: 0, active: true }
 

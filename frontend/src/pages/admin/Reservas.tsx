@@ -6,10 +6,10 @@ import {
   useCreate5,
   getFindAll5QueryKey,
   useCancel,
-} from '../services/booking-controller/booking-controller'
-import { useFindAll1 } from '../services/room-controller/room-controller'
-import { useFindAll4 } from '../services/client-controller/client-controller'
-import type { Booking, BookingStatus, Guest } from '../services/openAPIDefinition.schemas'
+} from '../../services/booking-controller/booking-controller'
+import { useFindAll1 } from '../../services/room-controller/room-controller'
+import { useFindAll4 } from '../../services/client-controller/client-controller'
+import type { Booking, BookingStatus, Guest } from '../../services/openAPIDefinition.schemas'
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   PENDING:   { label: 'Pendente',   color: 'bg-yellow-100 text-yellow-700' },

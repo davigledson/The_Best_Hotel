@@ -1,10 +1,10 @@
 import { BedDouble, Users, UserCog, ShoppingBasket, CalendarCheck, LogIn, TrendingUp, Activity } from 'lucide-react'
-import { useFindAll1 } from '../services/room-controller/room-controller'
-import { useFindAll4 } from '../services/client-controller/client-controller'
-import { useFindAll3 } from '../services/employee-controller/employee-controller'
-import { useFindAll2 } from '../services/product-controller/product-controller'
-import { useFindAll5 } from '../services/booking-controller/booking-controller'
-import { useFindAll6 } from '../services/stay-controller/stay-controller'
+import { useFindAll1 } from '../../services/room-controller/room-controller'
+import { useFindAll4 } from '../../services/client-controller/client-controller'
+import { useFindAll3 } from '../../services/employee-controller/employee-controller'
+import { useFindAll2 } from '../../services/product-controller/product-controller'
+import { useFindAll5 } from '../../services/booking-controller/booking-controller'
+import { useFindAll6 } from '../../services/stay-controller/stay-controller'
 
 interface StatCardProps {
   label: string

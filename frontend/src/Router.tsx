@@ -1,5 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom'
 import { Layout } from './components/Layout'
+import { ClientLayout } from './components/ClientLayout'
 import {
   Dashboard,
   Reservas,
@@ -13,10 +14,18 @@ import {
   Usuarios,
   Estadias,
 } from './pages'
+import { MyBookings } from './pages/client/MyBookings'
+import { MyStay } from './pages/client/MyStay'
+import { ClientHome } from './pages/client/ClientHome'
+import { HomePage } from './pages/HomePage'
 
 export const router = createBrowserRouter([
   {
     path: '/',
+    element: <HomePage />,
+  },
+  {
+    path: '/admin',
     element: <Layout />,
     children: [
       { index: true, element: <Dashboard /> },
@@ -30,6 +39,15 @@ export const router = createBrowserRouter([
       { path: 'estadias', element: <Estadias /> },
       { path: 'relatorios', element: <Relatorios /> },
       { path: 'usuarios', element: <Usuarios /> },
+    ],
+  },
+  {
+    path: '/client',
+    element: <ClientLayout />,
+    children: [
+      { index: true, element: <ClientHome /> },
+      { path: 'bookings', element: <MyBookings /> },
+      { path: 'stay', element: <MyStay /> },
     ],
   },
 ])

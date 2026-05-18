@@ -7,8 +7,8 @@ import {
   useUpdate,
   useDelete,
   getFindAllQueryKey,
-} from '../services/user-controller/user-controller'
-import type { User, UserRole } from '../services/openAPIDefinition.schemas'
+} from '../../services/user-controller/user-controller'
+import type { User, UserRole } from '../../services/openAPIDefinition.schemas'
 
 const emptyForm: User = { email: '', password: '', role: 'CLIENT', refId: '' as any }
 

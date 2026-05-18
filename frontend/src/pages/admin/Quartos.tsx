@@ -7,8 +7,8 @@ import {
   useUpdate1,
   useDelete1,
   getFindAll1QueryKey,
-} from '../services/room-controller/room-controller'
-import type { Room, RoomStatus } from '../services/openAPIDefinition.schemas'
+} from '../../services/room-controller/room-controller'
+import type { Room, RoomStatus } from '../../services/openAPIDefinition.schemas'
 
 const emptyForm: Room = { number: '', type: '', description: '', capacity: 1, dailyRate: 0, status: 'AVAILABLE' }
 

@@ -7,8 +7,8 @@ import {
   useUpdate3,
   useDelete3,
   getFindAll3QueryKey,
-} from '../services/employee-controller/employee-controller'
-import type { Employee } from '../services/openAPIDefinition.schemas'
+} from '../../services/employee-controller/employee-controller'
+import type { Employee } from '../../services/openAPIDefinition.schemas'
 
 const emptyForm: Employee = {
   name: '',

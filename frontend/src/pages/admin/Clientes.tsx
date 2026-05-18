@@ -7,8 +7,8 @@ import {
   useUpdate4,
   useDelete4,
   getFindAll4QueryKey,
-} from '../services/client-controller/client-controller'
-import type { Client } from '../services/openAPIDefinition.schemas'
+} from '../../services/client-controller/client-controller'
+import type { Client } from '../../services/openAPIDefinition.schemas'
 
 const emptyForm: Client = {
   name: '',

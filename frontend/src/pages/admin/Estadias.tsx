@@ -6,8 +6,8 @@ import {
   useCheckIn,
   useCheckOut,
   getFindAll6QueryKey,
-} from '../services/stay-controller/stay-controller'
-import type { Stay } from '../services/openAPIDefinition.schemas'
+} from '../../services/stay-controller/stay-controller'
+import type { Stay } from '../../services/openAPIDefinition.schemas'
 
 const emptyForm: Stay = { bookingId: '', status: 'ACTIVE' }
 
