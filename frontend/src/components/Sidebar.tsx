@@ -17,16 +17,16 @@ import {
 import { useState } from 'react'
 
 const navItems = [
-  { label: 'Dashboard', icon: LayoutDashboard, to: '/' },
-  { label: 'Reservas', icon: CalendarCheck, to: '/reservas' },
-  { label: 'Check-in', icon: LogIn, to: '/checkin' },
-  { label: 'Check-out', icon: LogOut, to: '/checkout' },
-  { label: 'Quartos', icon: BedDouble, to: '/quartos' },
-  { label: 'Clientes', icon: Users, to: '/clientes' },
-  { label: 'Funcionarios', icon: UserCog, to: '/funcionarios' },
-  { label: 'Produtos', icon: ShoppingBasket, to: '/produtos' },
-  { label: 'Relatorios', icon: BarChart2, to: '/relatorios' },
-  { label: 'Usuarios', icon: ShieldCheck, to: '/usuarios' },
+  { label: 'Dashboard', icon: LayoutDashboard, to: '/admin/' },
+  { label: 'Reservas', icon: CalendarCheck, to: '/admin/reservas' },
+  { label: 'Check-in', icon: LogIn, to: '/admin/checkin' },
+  { label: 'Check-out', icon: LogOut, to: '/admin/checkout' },
+  { label: 'Quartos', icon: BedDouble, to: '/admin/quartos' },
+  { label: 'Clientes', icon: Users, to: '/admin/clientes' },
+  { label: 'Funcionarios', icon: UserCog, to: '/admin/funcionarios' },
+  { label: 'Produtos', icon: ShoppingBasket, to: '/admin/produtos' },
+  { label: 'Relatorios', icon: BarChart2, to: '/admin/relatorios' },
+  { label: 'Usuarios', icon: ShieldCheck, to: '/admin/usuarios' },
 ]
 
 export function Sidebar() {
@@ -56,7 +56,7 @@ export function Sidebar() {
         <ul className="flex flex-col gap-1 px-2">
           {navItems.map(({ label, icon: Icon, to }) => {
             const isActive =
-              to === '/' ? location.pathname === '/' : location.pathname.startsWith(to)
+              to === '/admin/' ? location.pathname === '/admin/' : location.pathname.startsWith(to)
 
             return (
               <li key={to}>
