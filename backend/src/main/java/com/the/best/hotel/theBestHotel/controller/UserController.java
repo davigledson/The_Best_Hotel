@@ -1,5 +1,6 @@
 package com.the.best.hotel.theBestHotel.controller;
 
+import com.the.best.hotel.theBestHotel.dto.UserCreateRequest;
 import com.the.best.hotel.theBestHotel.model.User;
 import com.the.best.hotel.theBestHotel.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -28,8 +29,8 @@ public class UserController {
     }
 
     @PostMapping
-    public ResponseEntity<User> create(@RequestBody User user) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(userService.create(user));
+    public ResponseEntity<User> create(@RequestBody UserCreateRequest req) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(userService.create(req));
     }
 
     @PutMapping("/{id}")

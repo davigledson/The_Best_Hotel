@@ -1,20 +1,17 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Pencil, Trash2, Plus, X, Search, UserCog } from 'lucide-react'
+import { Pencil, Trash2, X, Search, UserCog, ChevronDown } from 'lucide-react'
 import {
   useFindAll3,
-  useCreate3,
   useUpdate3,
   useDelete3,
   getFindAll3QueryKey,
 } from '../../services/employee-controller/employee-controller'
-import type { Employee } from '../../services/openAPIDefinition.schemas'
-
-const emptyForm: Employee = {
-  name: '',
-  cpf: '',
-  phone: '',
-}
+import {
+  useFindAll,
+  getFindAllQueryKey,
+} from '../../services/user-controller/user-controller'
+import type { Employee, User } from '../../services/openAPIDefinition.schemas'
 
 function formatCPF(value: string) {
   return value
@@ -64,17 +61,31 @@ function Modal({ open, title, onClose, children }: ModalProps) {
   )
 }
 
+function getId(obj: { id?: unknown }): string {
+  const id = obj.id as any
+  if (!id) return ''
+  if (typeof id === 'string') return id
+  if (id.$oid) return id.$oid
+  return id.toString()
+}
+
+function getUserLabel(user: User): string {
+  return `${user.email} (${user.role ?? '—'})`
+}
+
 interface FormProps {
   initial: Employee
   onSubmit: (data: Employee) => void
   loading: boolean
   submitLabel: string
+  users?: User[]
+  mode: 'create' | 'edit'
 }
 
-function EmployeeForm({ initial, onSubmit, loading, submitLabel }: FormProps) {
+function EmployeeForm({ initial, onSubmit, loading, submitLabel, users, mode }: FormProps) {
   const [form, setForm] = useState<Employee>(initial)
 
-  const set = (field: keyof Employee) => (e: React.ChangeEvent<HTMLInputElement>) => {
+  const set = (field: keyof Employee) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     let value = e.target.value
     if (field === 'cpf') value = formatCPF(value)
     if (field === 'phone') value = formatPhone(value)
@@ -107,6 +118,35 @@ function EmployeeForm({ initial, onSubmit, loading, submitLabel }: FormProps) {
           />
         </div>
       ))}
+
+      {mode === 'create' && users && (
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Vincular usuario</label>
+          <div className="relative">
+            <select
+              value={(form.userId as any)?.$oid ?? ''}
+              onChange={(e) => {
+                const selected = users.find((u) => getId(u) === e.target.value)
+                setForm((prev) => ({
+                  ...prev,
+                  userId: selected?.id as any,
+                }))
+              }}
+              required
+              className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent appearance-none"
+            >
+              <option value="">Selecione um usuario</option>
+              {users.map((u) => (
+                <option key={getId(u)} value={getId(u)}>
+                  {getUserLabel(u)}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+          </div>
+        </div>
+      )}
+
       <button
         type="submit"
         disabled={loading}
@@ -121,29 +161,26 @@ function EmployeeForm({ initial, onSubmit, loading, submitLabel }: FormProps) {
 export function Funcionarios() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
-  const [modalCreate, setModalCreate] = useState(false)
   const [modalEdit, setModalEdit] = useState<Employee | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Employee | null>(null)
 
   const { data: employees = [], isLoading } = useFindAll3()
+  const { data: allUsers = [] } = useFindAll()
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: getFindAll3QueryKey() })
-
-  const createMutation = useCreate3({
-    mutation: {
-      onSuccess: () => { invalidate(); setModalCreate(false) },
-    },
-  })
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: getFindAll3QueryKey() })
+    queryClient.invalidateQueries({ queryKey: getFindAllQueryKey() })
+  }
 
   const updateMutation = useUpdate3({
     mutation: {
-      onSuccess: () => { invalidate(); setModalEdit(null) },
+      onSuccess: () => { invalidateAll(); setModalEdit(null) },
     },
   })
 
   const deleteMutation = useDelete3({
     mutation: {
-      onSuccess: () => { invalidate(); setConfirmDelete(null) },
+      onSuccess: () => { invalidateAll(); setConfirmDelete(null) },
     },
   })
 
@@ -156,12 +193,7 @@ export function Funcionarios() {
     )
   })
 
-  const getId = (employee: Employee) => {
-    const id = employee.id as unknown as { $oid?: string } | string
-    if (typeof id === 'string') return id
-    if (id && typeof id === 'object' && '$oid' in id) return id.$oid ?? ''
-    return ''
-  }
+  const userMap = new Map(allUsers.map((u) => [getId(u), u]))
 
   return (
     <div className="flex flex-col gap-6">
@@ -171,13 +203,6 @@ export function Funcionarios() {
           <h1 className="text-xl font-semibold text-zinc-800">Funcionarios</h1>
           <p className="text-sm text-zinc-400 mt-0.5">Gerencie o cadastro de funcionarios</p>
         </div>
-        <button
-          onClick={() => setModalCreate(true)}
-          className="flex items-center gap-2 bg-amber-400 hover:bg-amber-500 text-zinc-900 font-medium text-sm px-4 py-2.5 rounded-lg transition-colors"
-        >
-          <Plus size={16} />
-          Novo funcionario
-        </button>
       </div>
 
       {/* Search */}
@@ -224,6 +249,12 @@ export function Funcionarios() {
                   <span className="text-zinc-400">Telefone</span>
                   <span className="text-zinc-700">{employee.phone || '—'}</span>
                 </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-zinc-400">Usuario</span>
+                  <span className="text-zinc-700 truncate ml-2">
+                    {userMap.get((employee.userId as any)?.$oid ?? '')?.email ?? '—'}
+                  </span>
+                </div>
               </div>
 
               <div className="flex gap-2 mt-1">
@@ -247,16 +278,6 @@ export function Funcionarios() {
         </div>
       )}
 
-      {/* Modal criar */}
-      <Modal open={modalCreate} title="Novo funcionario" onClose={() => setModalCreate(false)}>
-        <EmployeeForm
-          initial={emptyForm}
-          submitLabel="Cadastrar funcionario"
-          loading={createMutation.isPending}
-          onSubmit={(data) => createMutation.mutate({ data })}
-        />
-      </Modal>
-
       {/* Modal editar */}
       <Modal open={!!modalEdit} title="Editar funcionario" onClose={() => setModalEdit(null)}>
         {modalEdit && (
@@ -264,6 +285,7 @@ export function Funcionarios() {
             initial={modalEdit}
             submitLabel="Salvar alteracoes"
             loading={updateMutation.isPending}
+            mode="edit"
             onSubmit={(data) => updateMutation.mutate({ id: getId(modalEdit), data })}
           />
         )}

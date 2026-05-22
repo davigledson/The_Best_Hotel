@@ -1,5 +1,6 @@
-import { Outlet, NavLink } from 'react-router-dom'
-import { Hotel, CalendarCheck, BedDouble } from 'lucide-react'
+import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Hotel, CalendarCheck, BedDouble, LogOut } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
 
 const navItems = [
   { label: 'Minhas Reservas', icon: CalendarCheck, to: '/client/bookings' },
@@ -7,6 +8,14 @@ const navItems = [
 ]
 
 export function ClientLayout() {
+  const { logout } = useAuth()
+  const navigate = useNavigate()
+
+  function handleLogout() {
+    logout()
+    navigate('/')
+  }
+
   return (
     <div className="flex h-screen bg-zinc-100 overflow-hidden">
       <aside className="flex flex-col h-screen w-60 bg-zinc-900 text-white shrink-0">
@@ -40,13 +49,14 @@ export function ClientLayout() {
           </ul>
         </nav>
 
-        <div className="px-4 py-4 border-t border-zinc-800">
-          <NavLink
-            to="/"
-            className="flex items-center gap-2 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+        <div className="px-4 py-4 border-t border-zinc-800 flex flex-col gap-2">
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 text-xs text-zinc-500 hover:text-red-400 transition-colors"
           >
-            Voltar ao painel admin
-          </NavLink>
+            <LogOut size={14} />
+            Sair
+          </button>
         </div>
       </aside>
 

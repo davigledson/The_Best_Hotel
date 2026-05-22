@@ -1,13 +1,12 @@
 import { useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { Plus, X, CalendarCheck, Hotel, AlertTriangle } from 'lucide-react'
 import {
-  useFindAll5,
   useCreate5,
   useCancel,
-  getFindAll5QueryKey,
 } from '../../services/booking-controller/booking-controller'
 import { useFindAll1 } from '../../services/room-controller/room-controller'
+import { customInstance } from '../../lib/axios'
 import type { Booking } from '../../services/openAPIDefinition.schemas'
 
 const statusLabel: Record<string, string> = {
@@ -69,12 +68,17 @@ export function MyBookings() {
     checkOutDate: '',
   })
 
-  const { data: bookings = [], isLoading } = useFindAll5()
+  const myBookingsKey = ['my-bookings']
+
+  const { data: bookings = [], isLoading } = useQuery({
+    queryKey: myBookingsKey,
+    queryFn: () => customInstance<Booking[]>({ url: '/bookings/my', method: 'GET' }),
+  })
   const { data: rooms = [] } = useFindAll1()
 
   const availableRooms = rooms.filter((r: any) => r.status === 'AVAILABLE')
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: getFindAll5QueryKey() })
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: myBookingsKey })
 
   const createMutation = useCreate5({
     mutation: {
@@ -155,22 +159,26 @@ export function MyBookings() {
                 <div className="p-2 bg-zinc-100 rounded-lg">
                   <Hotel size={18} className="text-zinc-500" />
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-zinc-800">
-                      Quarto {getId({ id: booking.roomId })}
-
-                    </span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusClass[booking.status ?? ''] ?? 'bg-zinc-100 text-zinc-500'}`}>
-                      {statusLabel[booking.status ?? ''] ?? booking.status}
-                    </span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-zinc-800">
+                        Quarto {getId({ id: booking.roomId })}
+                      </span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusClass[booking.status ?? ''] ?? 'bg-zinc-100 text-zinc-500'}`}>
+                        {statusLabel[booking.status ?? ''] ?? booking.status}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 mt-1 text-xs text-zinc-400">
+                      <span>Check-in: <span className="text-zinc-600">{String(booking.checkInDate)}</span></span>
+                      <span>Check-out: <span className="text-zinc-600">{String(booking.checkOutDate)}</span></span>
+                      <span>Diaria: <span className="text-zinc-600 font-medium">R$ {booking.dailyRate?.toFixed(2)}</span></span>
+                    </div>
+                    {booking.status === 'PENDING' && (
+                      <p className="text-xs text-yellow-600 mt-1.5">
+                        Aguardando aprovacao de um funcionario
+                      </p>
+                    )}
                   </div>
-                  <div className="flex items-center gap-3 mt-1 text-xs text-zinc-400">
-                    <span>Check-in: <span className="text-zinc-600">{String(booking.checkInDate)}</span></span>
-                    <span>Check-out: <span className="text-zinc-600">{String(booking.checkOutDate)}</span></span>
-                    <span>Diaria: <span className="text-zinc-600 font-medium">R$ {booking.dailyRate?.toFixed(2)}</span></span>
-                  </div>
-                </div>
               </div>
 
               {canCancel(booking) && (

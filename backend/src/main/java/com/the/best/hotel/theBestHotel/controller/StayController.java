@@ -1,11 +1,14 @@
 package com.the.best.hotel.theBestHotel.controller;
 
 import com.the.best.hotel.theBestHotel.model.Stay;
+import com.the.best.hotel.theBestHotel.model.User;
 import com.the.best.hotel.theBestHotel.service.StayService;
+import com.the.best.hotel.theBestHotel.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.bson.types.ObjectId;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,6 +20,7 @@ import java.util.Map;
 public class StayController {
 
     private final StayService stayService;
+    private final UserService userService;
 
     @GetMapping
     public ResponseEntity<List<Stay>> findAll() {
@@ -34,9 +38,9 @@ public class StayController {
     }
 
     @PostMapping("/checkin")
-    public ResponseEntity<Stay> checkIn(@RequestBody Map<String, String> body) {
+    public ResponseEntity<Stay> checkIn(@RequestBody Map<String, String> body, Authentication auth) {
         ObjectId bookingId = new ObjectId(body.get("bookingId"));
-        ObjectId employeeId = new ObjectId(body.get("employeeId"));
+        ObjectId employeeId = resolveEmployeeId(body.get("employeeId"), auth);
         return ResponseEntity.status(HttpStatus.CREATED).body(stayService.checkIn(bookingId, employeeId));
     }
 
@@ -48,8 +52,19 @@ public class StayController {
     }
 
     @PostMapping("/{id}/checkout")
-    public ResponseEntity<Stay> checkOut(@PathVariable String id, @RequestBody Map<String, String> body) {
-        ObjectId employeeId = new ObjectId(body.get("employeeId"));
+    public ResponseEntity<Stay> checkOut(@PathVariable String id, @RequestBody Map<String, String> body, Authentication auth) {
+        ObjectId employeeId = resolveEmployeeId(body.get("employeeId"), auth);
         return ResponseEntity.ok(stayService.checkOut(new ObjectId(id), employeeId));
+    }
+
+    private ObjectId resolveEmployeeId(String providedEmployeeId, Authentication auth) {
+        User user = userService.findByEmail(auth.getName());
+        if (user.getRole() == User.Role.ADMIN && providedEmployeeId != null && !providedEmployeeId.isBlank()) {
+            return new ObjectId(providedEmployeeId);
+        }
+        if (user.getRefId() == null) {
+            throw new RuntimeException("Authenticated user has no linked employee record");
+        }
+        return user.getRefId();
     }
 }

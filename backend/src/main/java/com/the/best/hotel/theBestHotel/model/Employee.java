@@ -23,4 +23,7 @@ public class Employee {
     private String cpf;
 
     private String phone;
+
+    @JsonSerialize(using = ToStringSerializer.class)
+    private ObjectId userId;
 }

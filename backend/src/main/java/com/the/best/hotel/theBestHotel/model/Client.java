@@ -27,4 +27,7 @@ public class Client {
     private String phone;
 
     private String address;
+
+    @JsonSerialize(using = ToStringSerializer.class)
+    private ObjectId userId;
 }

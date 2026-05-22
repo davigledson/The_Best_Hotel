@@ -30,6 +30,6 @@ public class Room {
     private Status status;
 
     public enum Status {
-        AVAILABLE, OCCUPIED, MAINTENANCE
+        AVAILABLE, RESERVED, OCCUPIED, MAINTENANCE
     }
 }

@@ -37,6 +37,8 @@ public class Booking {
 
     private LocalDateTime createdAt;
 
+    private Boolean checkinRequested = false;
+
     @Data
     public static class Guest {
         private ObjectId clientId;

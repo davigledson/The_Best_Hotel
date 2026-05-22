@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { LogOut, BedDouble, ChevronDown, ShoppingBasket, DollarSign, CalendarCheck } from 'lucide-react'
-import { useFindAll1 } from '../../services/room-controller/room-controller'
+import { LogOut, BedDouble, ChevronDown, ShoppingBasket, DollarSign, CalendarCheck, X, Check } from 'lucide-react'
 import { useFindAll3 } from '../../services/employee-controller/employee-controller'
 import { useCheckOut, useFindAll6, getFindAll6QueryKey } from '../../services/stay-controller/stay-controller'
 import { getFindAll5QueryKey } from '../../services/booking-controller/booking-controller'
+import { useAuth } from '../../contexts/AuthContext'
 
 function getId(obj: any): string {
   const id = obj?.id as any
@@ -26,16 +26,35 @@ function formatDate(date?: string) {
 const inputClass = "w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white"
 const labelClass = "text-xs font-medium text-zinc-500 uppercase tracking-wide"
 
+function Modal({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children: React.ReactNode }) {
+  if (!open) return null
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100">
+          <h2 className="text-base font-semibold text-zinc-800">{title}</h2>
+          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-700 transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+        <div className="px-6 py-4">{children}</div>
+      </div>
+    </div>
+  )
+}
+
 export function CheckOut() {
   const queryClient = useQueryClient()
+  const { user } = useAuth()
   const [stayId, setStayId] = useState('')
   const [employeeId, setEmployeeId] = useState('')
   const [success, setSuccess] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
 
   const { data: stays = [] } = useFindAll6()
-  const { data: rooms = [] } = useFindAll1()
   const { data: employees = [] } = useFindAll3()
 
+  const isAdmin = user?.role === 'ADMIN'
   const activeStays = stays.filter((s) => s.status === 'ACTIVE')
 
   const checkOutMutation = useCheckOut({
@@ -44,6 +63,7 @@ export function CheckOut() {
         queryClient.invalidateQueries({ queryKey: getFindAll6QueryKey() })
         queryClient.invalidateQueries({ queryKey: getFindAll5QueryKey() })
         setSuccess(true)
+        setShowConfirm(false)
         setStayId('')
         setEmployeeId('')
       },
@@ -52,18 +72,13 @@ export function CheckOut() {
 
   const selectedStay = activeStays.find((s) => getId(s) === stayId)
 
-  const getBookingRoomNumber = (stay: any) => {
-    const bookingId = stay?.bookingId
-    const id = typeof bookingId === 'object' && bookingId?.$oid ? bookingId.$oid : bookingId
-    return id ?? '—'
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleConfirm = () => {
     setSuccess(false)
+    const body: Record<string, string> = {}
+    if (isAdmin) body.employeeId = employeeId
     checkOutMutation.mutate({
       id: stayId,
-      data: { employeeId } as any,
+      data: body as any,
     })
   }
 
@@ -102,7 +117,7 @@ export function CheckOut() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <form onSubmit={(e) => { e.preventDefault(); setShowConfirm(true) }} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <label className={labelClass}>Estadia ativa</label>
               <div className="relative">
@@ -122,26 +137,28 @@ export function CheckOut() {
               )}
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label className={labelClass}>Funcionario responsavel</label>
-              <div className="relative">
-                <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}
-                  required className={`${inputClass} appearance-none`}>
-                  <option value="">Selecione um funcionario</option>
-                  {employees.map((emp) => (
-                    <option key={getId(emp)} value={getId(emp)}>
-                      {emp.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+            {isAdmin && (
+              <div className="flex flex-col gap-1.5">
+                <label className={labelClass}>Funcionario responsavel</label>
+                <div className="relative">
+                  <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}
+                    required className={`${inputClass} appearance-none`}>
+                    <option value="">Selecione um funcionario</option>
+                    {employees.map((emp) => (
+                      <option key={getId(emp)} value={getId(emp)}>
+                        {emp.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+                </div>
               </div>
-            </div>
+            )}
 
-            <button type="submit" disabled={checkOutMutation.isPending || !stayId || !employeeId}
+            <button type="submit" disabled={!stayId || (isAdmin && !employeeId)}
               className="mt-1 bg-zinc-800 hover:bg-zinc-900 disabled:opacity-50 text-white font-medium text-sm py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2">
               <LogOut size={16} />
-              {checkOutMutation.isPending ? 'Processando...' : 'Confirmar Check-out'}
+              Revisar Check-out
             </button>
           </form>
         </div>
@@ -223,6 +240,76 @@ export function CheckOut() {
           )}
         </div>
       </div>
+
+      {/* Modal de confirmacao */}
+      <Modal open={showConfirm} title="Confirmar Check-out" onClose={() => !checkOutMutation.isPending && setShowConfirm(false)}>
+        {selectedStay && (
+          <div className="flex flex-col gap-5">
+            <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-4 flex items-center gap-3">
+              <BedDouble size={20} className="text-zinc-500 shrink-0" />
+              <div>
+                <p className="font-semibold text-zinc-800">Check-out — Estadia ativa</p>
+                <p className="text-xs text-zinc-500">Entrada em {formatDate(selectedStay.checkInAt)}</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-zinc-500">Total de diarias</span>
+                <span className="font-semibold text-zinc-800">R$ {selectedStay.totalDailies?.toFixed(2) ?? '0.00'}</span>
+              </div>
+
+              {selectedStay.consumptions && selectedStay.consumptions.length > 0 && (
+                <div className="flex flex-col gap-2 border-t border-zinc-100 pt-3">
+                  <div className="flex items-center gap-1.5 text-sm font-medium text-zinc-700">
+                    <ShoppingBasket size={14} className="text-amber-400" />
+                    Consumos
+                  </div>
+                  {selectedStay.consumptions.map((c, i) => (
+                    <div key={i} className="flex justify-between text-sm ml-5">
+                      <span className="text-zinc-600">
+                        {c.productName} <span className="text-zinc-400">x{c.quantity}</span>
+                      </span>
+                      <span className="text-zinc-700">R$ {((c.quantity ?? 0) * (c.unitPrice ?? 0)).toFixed(2)}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between text-sm ml-5 border-t border-zinc-50 pt-1">
+                    <span className="text-zinc-500">Subtotal consumos</span>
+                    <span className="font-medium text-zinc-800">R$ {selectedStay.totalConsumptions?.toFixed(2)}</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center border-t border-zinc-100 pt-3">
+                <span className="text-sm font-medium text-zinc-700">Total geral</span>
+                <span className="text-lg font-bold text-amber-600">
+                  R$ {selectedStay.grandTotal?.toFixed(2) ?? (
+                    ((selectedStay.totalDailies ?? 0) + (selectedStay.totalConsumptions ?? 0)).toFixed(2)
+                  )}
+                </span>
+              </div>
+            </div>
+
+            {checkOutMutation.isError && (
+              <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-lg">
+                Erro ao realizar check-out. Verifique os dados e tente novamente.
+              </div>
+            )}
+
+            <div className="flex gap-2 justify-end pt-1">
+              <button onClick={() => setShowConfirm(false)} disabled={checkOutMutation.isPending}
+                className="px-4 py-2 text-sm text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors">
+                Voltar
+              </button>
+              <button onClick={handleConfirm} disabled={checkOutMutation.isPending}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-zinc-800 hover:bg-zinc-900 disabled:opacity-50 rounded-lg transition-colors">
+                <Check size={15} />
+                {checkOutMutation.isPending ? 'Processando...' : 'Confirmar Check-out'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }

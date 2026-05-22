@@ -1,22 +1,13 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Pencil, Trash2, Plus, X, Search, User } from 'lucide-react'
+import { Pencil, Trash2, X, Search, User } from 'lucide-react'
 import {
   useFindAll4,
-  useCreate4,
   useUpdate4,
   useDelete4,
   getFindAll4QueryKey,
 } from '../../services/client-controller/client-controller'
 import type { Client } from '../../services/openAPIDefinition.schemas'
-
-const emptyForm: Client = {
-  name: '',
-  cpf: '',
-  email: '',
-  phone: '',
-  address: '',
-}
 
 function formatCPF(value: string) {
   return value
@@ -118,19 +109,12 @@ function ClientForm({ initial, onSubmit, loading, submitLabel }: FormProps) {
 export function Clientes() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
-  const [modalCreate, setModalCreate] = useState(false)
   const [modalEdit, setModalEdit] = useState<Client | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Client | null>(null)
 
   const { data: clients = [], isLoading } = useFindAll4()
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getFindAll4QueryKey() })
-
-  const createMutation = useCreate4({
-    mutation: {
-      onSuccess: () => { invalidate(); setModalCreate(false) },
-    },
-  })
 
   const updateMutation = useUpdate4({
     mutation: {
@@ -168,13 +152,6 @@ export function Clientes() {
           <h1 className="text-xl font-semibold text-zinc-800">Clientes</h1>
           <p className="text-sm text-zinc-400 mt-0.5">Gerencie o cadastro de clientes</p>
         </div>
-        <button
-          onClick={() => setModalCreate(true)}
-          className="flex items-center gap-2 bg-amber-400 hover:bg-amber-500 text-zinc-900 font-medium text-sm px-4 py-2.5 rounded-lg transition-colors"
-        >
-          <Plus size={16} />
-          Novo cliente
-        </button>
       </div>
 
       {/* Search */}
@@ -242,16 +219,6 @@ export function Clientes() {
           </table>
         )}
       </div>
-
-      {/* Modal criar */}
-      <Modal open={modalCreate} title="Novo cliente" onClose={() => setModalCreate(false)}>
-        <ClientForm
-          initial={emptyForm}
-          submitLabel="Cadastrar cliente"
-          loading={createMutation.isPending}
-          onSubmit={(data) => createMutation.mutate({ data })}
-        />
-      </Modal>
 
       {/* Modal editar */}
       <Modal open={!!modalEdit} title="Editar cliente" onClose={() => setModalEdit(null)}>

@@ -397,7 +397,62 @@ export const getFindByStatus2QueryKey = (status?: 'PENDING' | 'CONFIRMED' | 'CAN
     }
 
     
-export const getFindByStatus2QueryOptions = <TData = Awaited<ReturnType<typeof findByStatus2>>, TError = unknown>(status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'CHECKIN' | 'CHECKOUT', options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findByStatus2>>, TError, TData>>, }
+export const approve = (
+    id: string,
+ signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<Booking>(
+      {url: `/bookings/${id}/approve`, method: 'POST', signal
+    },
+      );
+    }
+  
+
+
+export const getApproveMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approve>>, TError,{id: string}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof approve>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['approve'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approve>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  approve(id,)
+        }
+
+        
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApproveMutationResult = NonNullable<Awaited<ReturnType<typeof approve>>>
+    
+    export type ApproveMutationError = unknown
+
+    export const useApprove = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approve>>, TError,{id: string}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof approve>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+
+      const mutationOptions = getApproveMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    export const getFindByStatus2QueryOptions = <TData = Awaited<ReturnType<typeof findByStatus2>>, TError = unknown>(status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'CHECKIN' | 'CHECKOUT', options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findByStatus2>>, TError, TData>>, }
 ) => {
 
 const {query: queryOptions} = options ?? {};

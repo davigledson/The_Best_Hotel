@@ -1,15 +1,17 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Plus, X, Search, Calendar, BedDouble, Users, ChevronDown, XCircle } from 'lucide-react'
+import { Plus, X, Search, Calendar, BedDouble, Users, ChevronDown, XCircle, Check } from 'lucide-react'
 import {
   useFindAll5,
   useCreate5,
   getFindAll5QueryKey,
   useCancel,
+  useApprove,
 } from '../../services/booking-controller/booking-controller'
 import { useFindAll1 } from '../../services/room-controller/room-controller'
 import { useFindAll4 } from '../../services/client-controller/client-controller'
-import type { Booking, BookingStatus, Guest } from '../../services/openAPIDefinition.schemas'
+import type { Booking, BookingStatus } from '../../services/openAPIDefinition.schemas'
+import { useAuth } from '../../contexts/AuthContext'
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   PENDING:   { label: 'Pendente',   color: 'bg-yellow-100 text-yellow-700' },
@@ -239,6 +241,7 @@ function BookingForm({ onSubmit, loading }: BookingFormProps) {
 
 export function Reservas() {
   const queryClient = useQueryClient()
+  const { user } = useAuth()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<BookingStatus | ''>('')
   const [modalCreate, setModalCreate] = useState(false)
@@ -255,6 +258,10 @@ export function Reservas() {
 
   const cancelMutation = useCancel({
     mutation: { onSuccess: () => { invalidate(); setConfirmCancel(null) } },
+  })
+
+  const approveMutation = useApprove({
+    mutation: { onSuccess: () => invalidate() },
   })
 
   const getRoomNumber = (roomId: any) => {
@@ -360,7 +367,14 @@ export function Reservas() {
                         {status.label}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right flex items-center justify-end gap-2">
+                      {b.status === 'PENDING' && user?.role !== 'CLIENT' && (
+                        <button onClick={() => approveMutation.mutate({ id: getId(b) })}
+                          disabled={approveMutation.isPending}
+                          className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700 border border-green-200 hover:border-green-400 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50">
+                          <Check size={13} /> Aprovar
+                        </button>
+                      )}
                       {canCancel && (
                         <button onClick={() => setConfirmCancel(b)}
                           className="text-xs text-red-400 hover:text-red-600 border border-red-100 hover:border-red-300 px-2.5 py-1 rounded-lg transition-colors">

@@ -26,6 +26,6 @@ public class User {
     private ObjectId refId;
 
     public enum Role {
-        ADMIN, RECEPTIONIST, EMPLOYEE, CLIENT
+        ADMIN, EMPLOYEE, CLIENT
     }
 }

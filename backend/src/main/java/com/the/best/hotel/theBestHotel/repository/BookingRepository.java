@@ -16,4 +16,6 @@ public interface BookingRepository extends MongoRepository<Booking, ObjectId> {
     List<Booking> findByRoomIdAndStatusNotIn(ObjectId roomId, List<Booking.Status> statuses);
 
     List<Booking> findByCheckInDateBetween(LocalDate start, LocalDate end);
+
+    List<Booking> findByGuestsClientId(ObjectId clientId);
 }

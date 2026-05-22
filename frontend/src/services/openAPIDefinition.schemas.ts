@@ -15,7 +15,6 @@ export type UserRole = typeof UserRole[keyof typeof UserRole];
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const UserRole = {
   ADMIN: 'ADMIN',
-  RECEPTIONIST: 'RECEPTIONIST',
   EMPLOYEE: 'EMPLOYEE',
   CLIENT: 'CLIENT',
 } as const;
@@ -61,6 +60,7 @@ export interface Employee {
   name?: string;
   cpf?: string;
   phone?: string;
+  userId?: ObjectId;
 }
 
 export interface Client {
@@ -70,6 +70,7 @@ export interface Client {
   email?: string;
   phone?: string;
   address?: string;
+  userId?: ObjectId;
 }
 
 export interface Consumption {

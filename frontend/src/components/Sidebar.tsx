@@ -13,8 +13,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Hotel,
+  DoorOpen,
 } from 'lucide-react'
 import { useState } from 'react'
+import { useAuth } from '../contexts/AuthContext'
 
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, to: '/admin/' },
@@ -31,6 +33,7 @@ const navItems = [
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
+  const { logout } = useAuth()
   const location = useLocation()
 
   return (
@@ -80,6 +83,16 @@ export function Sidebar() {
           })}
         </ul>
       </nav>
+
+      {/* Logout */}
+      <button
+        onClick={() => { logout(); window.location.href = '/' }}
+        className={`flex items-center gap-3 px-3 py-2.5 mx-2 mb-2 rounded-lg text-sm transition-colors text-zinc-500 hover:text-red-400 hover:bg-zinc-800 ${collapsed ? 'justify-center mx-2' : ''}`}
+        title="Sair"
+      >
+        <DoorOpen size={18} className="shrink-0" />
+        {!collapsed && <span>Sair</span>}
+      </button>
 
       {/* Collapse toggle */}
       <button

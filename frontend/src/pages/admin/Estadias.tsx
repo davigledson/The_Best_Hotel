@@ -9,14 +9,14 @@ import {
 } from '../../services/stay-controller/stay-controller'
 import type { Stay } from '../../services/openAPIDefinition.schemas'
 
-const emptyForm: Stay = { bookingId: '', status: 'ACTIVE' }
+const emptyForm = { bookingId: '' as any, status: 'ACTIVE' as const }
 
 interface ModalProps { open: boolean; title: string; onClose: () => void; children: React.ReactNode }
 function Modal({ open, title, onClose, children }: ModalProps) { if (!open) return null; return (<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"><div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4"><div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100"><h2 className="text-base font-semibold text-zinc-800">{title}</h2><button onClick={onClose} className="text-zinc-400 hover:text-zinc-700 transition-colors"><X size={20} /></button></div><div className="px-6 py-4">{children}</div></div></div>) }
 
 interface FormProps { initial: Stay; onSubmit: (data: any) => void; loading: boolean; submitLabel: string }
 function CheckInForm({ initial, onSubmit, loading, submitLabel }: FormProps) {
-  const [bookingId, setBookingId] = useState(initial.bookingId ?? '')
+  const [bookingId, setBookingId] = useState((initial.bookingId as string) ?? '')
   const handle = (e: React.FormEvent) => { e.preventDefault(); onSubmit({ bookingId }) }
   return (<form onSubmit={handle} className="flex flex-col gap-4"><div className="flex flex-col gap-1"><label className="text-xs">Booking ID</label><input value={bookingId} onChange={(e) => setBookingId(e.target.value)} required className="border px-3 py-2 rounded-lg"/></div><button type="submit" disabled={loading} className="mt-2 bg-amber-400 hover:bg-amber-500 disabled:opacity-50 text-zinc-900 font-medium text-sm py-2.5 rounded-lg">{submitLabel}</button></form>)
 }
