@@ -35,9 +35,11 @@ public class SecurityConfig {
 
                         .requestMatchers("/bookings/*/request-checkin").hasRole("CLIENT")
 
+                        .requestMatchers(HttpMethod.GET, "/stays/my").hasRole("CLIENT")
                         .requestMatchers("/stays/checkin").hasAnyRole("ADMIN", "EMPLOYEE")
                         .requestMatchers("/stays/*/checkout").hasAnyRole("ADMIN", "EMPLOYEE")
-                        .requestMatchers("/stays/*/consumption").hasAnyRole("ADMIN", "EMPLOYEE")
+                        .requestMatchers("/stays/*/consumptions").hasAnyRole("ADMIN", "EMPLOYEE", "CLIENT")
+                        .requestMatchers("/stays/*/consumptions/*").hasAnyRole("ADMIN", "EMPLOYEE", "CLIENT")
                         .requestMatchers("/bookings/*/cancel").hasAnyRole("ADMIN", "EMPLOYEE")
                         .requestMatchers("/bookings/*/approve").hasAnyRole("ADMIN", "EMPLOYEE")
 
@@ -49,7 +51,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/rooms/*").hasAnyRole("ADMIN", "EMPLOYEE")
                         .requestMatchers(HttpMethod.DELETE, "/rooms/*").hasRole("ADMIN")
 
-                        .requestMatchers(HttpMethod.GET, "/products/**").hasAnyRole("ADMIN", "EMPLOYEE")
+                        .requestMatchers(HttpMethod.GET, "/products/**").hasAnyRole("ADMIN", "EMPLOYEE", "CLIENT")
                         .requestMatchers(HttpMethod.PUT, "/products/*").hasAnyRole("ADMIN", "EMPLOYEE")
                         .requestMatchers(HttpMethod.POST, "/products").hasAnyRole("ADMIN", "EMPLOYEE")
 

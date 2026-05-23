@@ -289,6 +289,7 @@ export function useFindById6<TData = Awaited<ReturnType<typeof findById6>>, TErr
       >, }
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+  
 export function useFindById6<TData = Awaited<ReturnType<typeof findById6>>, TError = unknown>(
  id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findById6>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<

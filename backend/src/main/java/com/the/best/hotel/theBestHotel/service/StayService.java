@@ -4,18 +4,21 @@ import com.the.best.hotel.theBestHotel.model.Booking;
 import com.the.best.hotel.theBestHotel.model.Product;
 import com.the.best.hotel.theBestHotel.model.Room;
 import com.the.best.hotel.theBestHotel.model.Stay;
+import com.the.best.hotel.theBestHotel.model.User;
 import com.the.best.hotel.theBestHotel.repository.BookingRepository;
 import com.the.best.hotel.theBestHotel.repository.ProductRepository;
 import com.the.best.hotel.theBestHotel.repository.RoomRepository;
 import com.the.best.hotel.theBestHotel.repository.StayRepository;
 import lombok.RequiredArgsConstructor;
 import org.bson.types.ObjectId;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -39,6 +42,10 @@ public class StayService {
                 .orElseThrow(() -> new RuntimeException("Stay not found"));
     }
 
+    public List<Stay> findByClient(ObjectId clientId) {
+        return stayRepository.findByClientId(clientId);
+    }
+
     public Stay checkIn(ObjectId bookingId, ObjectId employeeId) {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Booking not found"));
@@ -54,6 +61,15 @@ public class StayService {
         Room room = roomRepository.findById(booking.getRoomId())
                 .orElseThrow(() -> new RuntimeException("Room not found"));
 
+        ObjectId clientId = null;
+        if (booking.getGuests() != null) {
+            clientId = booking.getGuests().stream()
+                    .filter(Booking.Guest::isHolder)
+                    .map(Booking.Guest::getClientId)
+                    .findFirst()
+                    .orElse(null);
+        }
+
         room.setStatus(Room.Status.OCCUPIED);
         roomRepository.save(room);
 
@@ -62,6 +78,7 @@ public class StayService {
 
         Stay stay = new Stay();
         stay.setBookingId(bookingId);
+        stay.setClientId(clientId);
         stay.setCheckInAt(LocalDateTime.now());
         stay.setCheckInEmployeeId(employeeId);
         stay.setConsumptions(new ArrayList<>());
@@ -70,7 +87,8 @@ public class StayService {
         return stayRepository.save(stay);
     }
 
-    public Stay addConsumption(ObjectId stayId, ObjectId productId, int quantity) {
+    public Stay addConsumption(ObjectId stayId, ObjectId productId, int quantity,
+                                Stay.DeliveryStatus deliveryStatus, String notes) {
         Stay stay = findById(stayId);
 
         if (stay.getStatus() != Stay.Status.ACTIVE) {
@@ -85,13 +103,47 @@ public class StayService {
         }
 
         Stay.Consumption consumption = new Stay.Consumption();
+        consumption.setId(UUID.randomUUID().toString());
         consumption.setProductId(productId);
         consumption.setProductName(product.getName());
         consumption.setQuantity(quantity);
         consumption.setUnitPrice(product.getPrice());
         consumption.setRegisteredAt(LocalDateTime.now());
+        consumption.setDeliveryStatus(deliveryStatus);
+        consumption.setNotes(notes);
 
         stay.getConsumptions().add(consumption);
+
+        return stayRepository.save(stay);
+    }
+
+    public Stay updateConsumptionStatus(ObjectId stayId, String consumptionId, Stay.DeliveryStatus newStatus, Authentication auth) {
+        Stay stay = findById(stayId);
+
+        if (stay.getStatus() != Stay.Status.ACTIVE) {
+            throw new RuntimeException("Stay is not active");
+        }
+
+        if (stay.getConsumptions() == null) {
+            throw new RuntimeException("Consumption not found");
+        }
+
+        Stay.Consumption target = stay.getConsumptions().stream()
+                .filter(c -> consumptionId.equals(c.getId()))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Consumption not found"));
+
+        boolean isEmployee = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_EMPLOYEE"));
+
+        if (newStatus == Stay.DeliveryStatus.DELIVERED && isEmployee) {
+            newStatus = Stay.DeliveryStatus.AWAITING_CONFIRMATION;
+        }
+
+        target.setDeliveryStatus(newStatus);
+        if (newStatus == Stay.DeliveryStatus.DELIVERED) {
+            target.setCompletedAt(LocalDateTime.now());
+        }
 
         return stayRepository.save(stay);
     }
@@ -115,6 +167,7 @@ public class StayService {
         totalDailies = Math.max(0, totalDailies - booking.getAdvancePayment());
 
         double totalConsumptions = stay.getConsumptions().stream()
+                .filter(c -> c.getDeliveryStatus() == Stay.DeliveryStatus.DELIVERED)
                 .mapToDouble(c -> c.getUnitPrice() * c.getQuantity())
                 .sum();
 

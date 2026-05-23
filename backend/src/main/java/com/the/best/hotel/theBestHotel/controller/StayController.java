@@ -27,6 +27,15 @@ public class StayController {
         return ResponseEntity.ok(stayService.findAll());
     }
 
+    @GetMapping("/my")
+    public ResponseEntity<List<Stay>> findMyStays(Authentication auth) {
+        User user = userService.findByEmail(auth.getName());
+        if (user.getRefId() == null) {
+            return ResponseEntity.ok(List.of());
+        }
+        return ResponseEntity.ok(stayService.findByClient(user.getRefId()));
+    }
+
     @GetMapping("/status/{status}")
     public ResponseEntity<List<Stay>> findByStatus(@PathVariable Stay.Status status) {
         return ResponseEntity.ok(stayService.findByStatus(status));
@@ -44,11 +53,25 @@ public class StayController {
         return ResponseEntity.status(HttpStatus.CREATED).body(stayService.checkIn(bookingId, employeeId));
     }
 
-    @PostMapping("/{id}/consumption")
+    @PostMapping("/{id}/consumptions")
     public ResponseEntity<Stay> addConsumption(@PathVariable String id, @RequestBody Map<String, String> body) {
         ObjectId productId = new ObjectId(body.get("productId"));
         int quantity = Integer.parseInt(body.get("quantity"));
-        return ResponseEntity.ok(stayService.addConsumption(new ObjectId(id), productId, quantity));
+        Stay.DeliveryStatus status = body.containsKey("deliveryStatus")
+                ? Stay.DeliveryStatus.valueOf(body.get("deliveryStatus"))
+                : Stay.DeliveryStatus.FOR_DELIVERY;
+        String notes = body.getOrDefault("notes", null);
+        return ResponseEntity.ok(stayService.addConsumption(new ObjectId(id), productId, quantity, status, notes));
+    }
+
+    @PutMapping("/{stayId}/consumptions/{consumptionId}")
+    public ResponseEntity<Stay> updateConsumptionStatus(
+            @PathVariable String stayId,
+            @PathVariable String consumptionId,
+            @RequestBody Map<String, String> body,
+            Authentication auth) {
+        Stay.DeliveryStatus newStatus = Stay.DeliveryStatus.valueOf(body.get("deliveryStatus"));
+        return ResponseEntity.ok(stayService.updateConsumptionStatus(new ObjectId(stayId), consumptionId, newStatus, auth));
     }
 
     @PostMapping("/{id}/checkout")

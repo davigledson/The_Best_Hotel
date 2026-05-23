@@ -6,6 +6,9 @@ import { useCheckOut, useFindAll6, getFindAll6QueryKey } from '../../services/st
 import { getFindAll5QueryKey } from '../../services/booking-controller/booking-controller'
 import { useAuth } from '../../contexts/AuthContext'
 
+const statusLabel: Record<string, string> = { FOR_DELIVERY: 'Para envio', FOR_PICKUP: 'Para retirada', AWAITING_CONFIRMATION: 'Aguardando confirmacao', DELIVERED: 'Entregue', CANCELLED: 'Cancelado' }
+const statusClass: Record<string, string> = { FOR_DELIVERY: 'bg-blue-100 text-blue-700', FOR_PICKUP: 'bg-yellow-100 text-yellow-700', AWAITING_CONFIRMATION: 'bg-purple-100 text-purple-700', DELIVERED: 'bg-green-100 text-green-700', CANCELLED: 'bg-red-100 text-red-500' }
+
 function getId(obj: any): string {
   const id = obj?.id as any
   if (!id) return ''
@@ -71,6 +74,8 @@ export function CheckOut() {
   })
 
   const selectedStay = activeStays.find((s) => getId(s) === stayId)
+  const deliveredConsumptions = (selectedStay?.consumptions ?? []).filter((c) => c.deliveryStatus === 'DELIVERED')
+  const deliveredTotal = deliveredConsumptions.reduce((acc, c) => acc + (c.unitPrice ?? 0) * (c.quantity ?? 0), 0)
 
   const handleConfirm = () => {
     setSuccess(false)
@@ -208,19 +213,27 @@ export function CheckOut() {
                     {selectedStay.consumptions.map((c, i) => (
                       <div key={i} className="flex items-center justify-between text-sm">
                         <div className="flex flex-col">
-                          <span className="text-zinc-700">{c.productName}</span>
-                          <span className="text-xs text-zinc-400">x{c.quantity} — R$ {c.unitPrice?.toFixed(2)} un.</span>
+                          <span className={`${c.deliveryStatus === 'CANCELLED' ? 'line-through text-zinc-300' : 'text-zinc-700'}`}>{c.productName}</span>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className={`text-xs ${c.deliveryStatus === 'CANCELLED' ? 'line-through text-zinc-300' : 'text-zinc-400'}`}>x{c.quantity} — R$ {c.unitPrice?.toFixed(2)} un.</span>
+                            <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${statusClass[c.deliveryStatus ?? ''] ?? ''}`}>
+                              {statusLabel[c.deliveryStatus ?? ''] ?? c.deliveryStatus}
+                            </span>
+                          </div>
                         </div>
-                        <span className="font-medium text-zinc-800">
+                        <span className={`font-medium ${c.deliveryStatus === 'CANCELLED' ? 'line-through text-zinc-300' : 'text-zinc-800'}`}>
                           R$ {((c.quantity ?? 0) * (c.unitPrice ?? 0)).toFixed(2)}
                         </span>
                       </div>
                     ))}
                   </div>
                   <div className="border-t border-zinc-50 pt-2 flex justify-between text-sm">
-                    <span className="text-zinc-500">Total consumos</span>
-                    <span className="font-medium text-zinc-800">R$ {selectedStay.totalConsumptions?.toFixed(2)}</span>
+                    <span className="text-zinc-500">Total consumos (entregues)</span>
+                    <span className="font-medium text-zinc-800">R$ {deliveredTotal.toFixed(2)}</span>
                   </div>
+                  {deliveredConsumptions.length < (selectedStay.consumptions?.length ?? 0) && (
+                    <p className="text-xs text-zinc-400">Consumos pendentes serao desconsiderados no momento do check-out.</p>
+                  )}
                 </div>
               )}
 
@@ -231,9 +244,7 @@ export function CheckOut() {
                   Total a pagar
                 </div>
                 <span className="text-xl font-bold text-amber-700">
-                  R$ {selectedStay.grandTotal?.toFixed(2) ?? (
-                    ((selectedStay.totalDailies ?? 0) + (selectedStay.totalConsumptions ?? 0)).toFixed(2)
-                  )}
+                  R$ {((selectedStay.totalDailies ?? 0) + deliveredTotal).toFixed(2)}
                 </span>
               </div>
             </div>
@@ -266,16 +277,19 @@ export function CheckOut() {
                     Consumos
                   </div>
                   {selectedStay.consumptions.map((c, i) => (
-                    <div key={i} className="flex justify-between text-sm ml-5">
-                      <span className="text-zinc-600">
-                        {c.productName} <span className="text-zinc-400">x{c.quantity}</span>
-                      </span>
-                      <span className="text-zinc-700">R$ {((c.quantity ?? 0) * (c.unitPrice ?? 0)).toFixed(2)}</span>
-                    </div>
+                      <div key={i} className="flex justify-between text-sm ml-5">
+                        <span className={`${c.deliveryStatus === 'CANCELLED' ? 'line-through text-zinc-300' : 'text-zinc-600'}`}>
+                          {c.productName} <span className="text-zinc-400">x{c.quantity}</span>
+                          <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full font-medium ${statusClass[c.deliveryStatus ?? ''] ?? ''}`}>
+                            {statusLabel[c.deliveryStatus ?? ''] ?? c.deliveryStatus}
+                          </span>
+                        </span>
+                        <span className={`${c.deliveryStatus === 'CANCELLED' ? 'line-through text-zinc-300' : 'text-zinc-700'}`}>R$ {((c.quantity ?? 0) * (c.unitPrice ?? 0)).toFixed(2)}</span>
+                      </div>
                   ))}
                   <div className="flex justify-between text-sm ml-5 border-t border-zinc-50 pt-1">
-                    <span className="text-zinc-500">Subtotal consumos</span>
-                    <span className="font-medium text-zinc-800">R$ {selectedStay.totalConsumptions?.toFixed(2)}</span>
+                    <span className="text-zinc-500">Subtotal consumos (entregues)</span>
+                    <span className="font-medium text-zinc-800">R$ {deliveredTotal.toFixed(2)}</span>
                   </div>
                 </div>
               )}
@@ -283,9 +297,7 @@ export function CheckOut() {
               <div className="flex justify-between items-center border-t border-zinc-100 pt-3">
                 <span className="text-sm font-medium text-zinc-700">Total geral</span>
                 <span className="text-lg font-bold text-amber-600">
-                  R$ {selectedStay.grandTotal?.toFixed(2) ?? (
-                    ((selectedStay.totalDailies ?? 0) + (selectedStay.totalConsumptions ?? 0)).toFixed(2)
-                  )}
+                  R$ {((selectedStay.totalDailies ?? 0) + deliveredTotal).toFixed(2)}
                 </span>
               </div>
             </div>

@@ -19,6 +19,7 @@ import {
 import { MyBookings } from './pages/client/MyBookings'
 import { MyStay } from './pages/client/MyStay'
 import { ClientHome } from './pages/client/ClientHome'
+import { Consumos } from './pages/client/Consumos'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
@@ -85,6 +86,7 @@ export const router = createBrowserRouter([
       { index: true, element: <ClientHome /> },
       { path: 'bookings', element: <MyBookings /> },
       { path: 'stay', element: <MyStay /> },
+      { path: 'consumos', element: <Consumos /> },
     ],
   },
 ])

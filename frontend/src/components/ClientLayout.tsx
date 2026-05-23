@@ -1,10 +1,11 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { Hotel, CalendarCheck, BedDouble, LogOut } from 'lucide-react'
+import { Hotel, CalendarCheck, BedDouble, UtensilsCrossed, LogOut } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 const navItems = [
   { label: 'Minhas Reservas', icon: CalendarCheck, to: '/client/bookings' },
   { label: 'Minha Estadia', icon: BedDouble, to: '/client/stay' },
+  { label: 'Consumos', icon: UtensilsCrossed, to: '/client/consumos' },
 ]
 
 export function ClientLayout() {

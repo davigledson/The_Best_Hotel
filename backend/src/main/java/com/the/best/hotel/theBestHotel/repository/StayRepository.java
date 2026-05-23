@@ -12,4 +12,6 @@ public interface StayRepository extends MongoRepository<Stay, ObjectId> {
     Optional<Stay> findByBookingId(ObjectId bookingId);
 
     List<Stay> findByStatus(Stay.Status status);
+
+    List<Stay> findByClientId(ObjectId clientId);
 }

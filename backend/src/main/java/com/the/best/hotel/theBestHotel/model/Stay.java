@@ -28,6 +28,8 @@ public class Stay {
 
     private ObjectId checkOutEmployeeId;
 
+    private ObjectId clientId;
+
     private List<Consumption> consumptions;
 
     private double totalDailies;
@@ -40,14 +42,26 @@ public class Stay {
 
     @Data
     public static class Consumption {
+        private String id;
         private ObjectId productId;
         private String productName;
         private int quantity;
         private double unitPrice;
         private LocalDateTime registeredAt;
+        private DeliveryStatus deliveryStatus;
+        private String notes;
+        private LocalDateTime completedAt;
     }
 
     public enum Status {
         ACTIVE, CLOSED
+    }
+
+    public enum DeliveryStatus {
+        FOR_DELIVERY,
+        FOR_PICKUP,
+        AWAITING_CONFIRMATION,
+        DELIVERED,
+        CANCELLED
     }
 }

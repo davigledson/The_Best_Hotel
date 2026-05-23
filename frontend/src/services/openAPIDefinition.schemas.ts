@@ -73,12 +73,27 @@ export interface Client {
   userId?: ObjectId;
 }
 
+export type DeliveryStatus = typeof DeliveryStatus[keyof typeof DeliveryStatus];
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const DeliveryStatus = {
+  FOR_DELIVERY: 'FOR_DELIVERY',
+  FOR_PICKUP: 'FOR_PICKUP',
+  AWAITING_CONFIRMATION: 'AWAITING_CONFIRMATION',
+  DELIVERED: 'DELIVERED',
+  CANCELLED: 'CANCELLED',
+} as const;
+
 export interface Consumption {
+  id?: string;
   productId?: ObjectId;
   productName?: string;
   quantity?: number;
   unitPrice?: number;
   registeredAt?: string;
+  deliveryStatus?: DeliveryStatus;
+  notes?: string;
+  completedAt?: string;
 }
 
 export type StayStatus = typeof StayStatus[keyof typeof StayStatus];
@@ -93,6 +108,7 @@ export const StayStatus = {
 export interface Stay {
   id?: ObjectId;
   bookingId?: ObjectId;
+  clientId?: ObjectId;
   checkInAt?: string;
   checkOutAt?: string;
   checkInEmployeeId?: ObjectId;
