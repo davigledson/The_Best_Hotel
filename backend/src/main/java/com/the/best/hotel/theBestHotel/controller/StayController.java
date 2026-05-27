@@ -54,14 +54,14 @@ public class StayController {
     }
 
     @PostMapping("/{id}/consumptions")
-    public ResponseEntity<Stay> addConsumption(@PathVariable String id, @RequestBody Map<String, String> body) {
+    public ResponseEntity<Stay> addConsumption(@PathVariable String id, @RequestBody Map<String, String> body, Authentication auth) {
         ObjectId productId = new ObjectId(body.get("productId"));
         int quantity = Integer.parseInt(body.get("quantity"));
         Stay.DeliveryStatus status = body.containsKey("deliveryStatus")
                 ? Stay.DeliveryStatus.valueOf(body.get("deliveryStatus"))
                 : Stay.DeliveryStatus.FOR_DELIVERY;
         String notes = body.getOrDefault("notes", null);
-        return ResponseEntity.ok(stayService.addConsumption(new ObjectId(id), productId, quantity, status, notes));
+        return ResponseEntity.ok(stayService.addConsumption(new ObjectId(id), productId, quantity, status, notes, auth));
     }
 
     @PutMapping("/{stayId}/consumptions/{consumptionId}")

@@ -1,24 +1,35 @@
 package com.the.best.hotel.theBestHotel.config;
 
+import com.the.best.hotel.theBestHotel.model.Booking;
 import com.the.best.hotel.theBestHotel.model.Client;
 import com.the.best.hotel.theBestHotel.model.Employee;
 import com.the.best.hotel.theBestHotel.model.Product;
 import com.the.best.hotel.theBestHotel.model.Room;
+import com.the.best.hotel.theBestHotel.model.Stay;
 import com.the.best.hotel.theBestHotel.model.User;
+import com.the.best.hotel.theBestHotel.repository.BookingRepository;
 import com.the.best.hotel.theBestHotel.repository.ClientRepository;
 import com.the.best.hotel.theBestHotel.repository.EmployeeRepository;
 import com.the.best.hotel.theBestHotel.repository.ProductRepository;
 import com.the.best.hotel.theBestHotel.repository.RoomRepository;
+import com.the.best.hotel.theBestHotel.repository.StayRepository;
 import com.the.best.hotel.theBestHotel.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.bson.types.ObjectId;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -29,6 +40,8 @@ public class DataInitializer implements CommandLineRunner {
     private final ClientRepository clientRepository;
     private final RoomRepository roomRepository;
     private final ProductRepository productRepository;
+    private final BookingRepository bookingRepository;
+    private final StayRepository stayRepository;
     private final PasswordEncoder passwordEncoder;
 
     private static final Random RNG = new Random();
@@ -52,14 +65,25 @@ public class DataInitializer implements CommandLineRunner {
             "Bebidas", "Alimentos", "Higiene", "Diversos"
     );
 
+    private static final List<String> NOMES = List.of(
+            "joao", "maria", "pedro", "carlos", "ana",
+            "lucas", "julia", "rafael", "beatriz", "gabriel",
+            "fernanda", "rodrigo", "camila", "felipe", "amanda"
+    );
+
     @Override
     public void run(String... args) {
         createIfNotExists("admin@gmail.com", "admin123", User.Role.ADMIN);
         createIfNotExists("funcionario@gmail.com", "func123", User.Role.EMPLOYEE);
         createIfNotExists("cliente@gmail.com", "cliente123", User.Role.CLIENT);
 
-        seedRooms(10);
-        seedProducts(15);
+        seedRooms(100);
+        seedProducts(250);
+
+        seedFromNameList(20, User.Role.EMPLOYEE);
+        seedFromNameList(120, User.Role.CLIENT);
+
+        seedBookingsAndStays(100, 67, 23);
     }
 
     private void createIfNotExists(String email, String password, User.Role role) {
@@ -94,6 +118,60 @@ public class DataInitializer implements CommandLineRunner {
         }
 
         System.out.println("Usuario criado: " + email + " (" + role + ")");
+    }
+
+    private void seedFromNameList(int count, User.Role role) {
+
+        int created = 0;
+
+        while (created < count) {
+
+            String nome = NOMES.get((int)(NOMES.size() * Math.random()));
+            String email = "";
+            int i = 0;
+
+            do {
+                email = nome + (i++) + "@gmail.com";
+            } while (userRepository.existsByEmail(email));
+
+
+            User user = new User();
+            user.setEmail(email);
+            user.setPassword(passwordEncoder.encode(nome + "123"));
+            user.setRole(role);
+            user = userRepository.save(user);
+
+            String cpf = String.format("%03d.%03d.%03d-%02d", RNG.nextInt(1000), RNG.nextInt(1000), RNG.nextInt(1000), RNG.nextInt(100));
+            String phone = String.format("(11) 9%04d-%04d", RNG.nextInt(10000), RNG.nextInt(10000));
+
+            if (role == User.Role.EMPLOYEE) {
+                Employee emp = new Employee();
+                emp.setName(capitalize(nome));
+                emp.setCpf(cpf);
+                emp.setPhone(phone);
+                emp.setUserId(user.getId());
+                emp = employeeRepository.save(emp);
+                user.setRefId(emp.getId());
+                userRepository.save(user);
+                System.out.println("Funcionario criado: " + email);
+            } else if (role == User.Role.CLIENT) {
+                Client cli = new Client();
+                cli.setName(capitalize(nome));
+                cli.setCpf(cpf);
+                cli.setEmail(email);
+                cli.setPhone(phone);
+                cli.setAddress("Rua " + capitalize(nome) + ", " + RNG.nextInt(1000));
+                cli = clientRepository.save(cli);
+                user.setRefId(cli.getId());
+                userRepository.save(user);
+                System.out.println("Cliente criado: " + email);
+            }
+
+            created++;
+            
+
+        }
+
     }
 
     private void seedRooms(int n) {
@@ -164,5 +242,206 @@ public class DataInitializer implements CommandLineRunner {
             productRepository.save(product);
             System.out.println("Produto criado: " + nome + " (" + product.getCategory() + ")");
         }
+    }
+
+    private void seedBookingsAndStays(int nBookings, int nActive, int nClosed) {
+        if (bookingRepository.count() > 0) return;
+
+        List<Room> allRooms = roomRepository.findAll();
+        List<Client> allClients = clientRepository.findAll();
+        List<Product> allProducts = productRepository.findAll();
+
+        if (allRooms.isEmpty() || allClients.isEmpty() || allProducts.isEmpty()) return;
+
+        LocalDate today = LocalDate.now();
+        int nRemaining = nBookings - nActive - nClosed;
+        int nPending = (int) (nRemaining * 0.4);
+        int nConfirmed = (int) (nRemaining * 0.4);
+        int nCancelled = nRemaining - nPending - nConfirmed;
+
+        // Build status list and shuffle
+        List<Booking.Status> statuses = new ArrayList<>();
+        for (int i = 0; i < nPending; i++) statuses.add(Booking.Status.PENDING);
+        for (int i = 0; i < nConfirmed; i++) statuses.add(Booking.Status.CONFIRMED);
+        for (int i = 0; i < nCancelled; i++) statuses.add(Booking.Status.CANCELLED);
+        for (int i = 0; i < nActive; i++) statuses.add(Booking.Status.CHECKIN);
+        for (int i = 0; i < nClosed; i++) statuses.add(Booking.Status.CHECKOUT);
+        Collections.shuffle(statuses, RNG);
+
+        int clientIdx = 0;
+        int roomIdx = 0;
+
+        for (Booking.Status status : statuses) {
+            int offset;
+            int pastDays = 10;
+            int futureDays = 7;
+
+            if (status == Booking.Status.PENDING || status == Booking.Status.CONFIRMED) {
+                offset = RNG.nextInt(1, futureDays + 1);
+            } else if (status == Booking.Status.CANCELLED) {
+                offset = -RNG.nextInt(1, pastDays + 1);
+            } else if (status == Booking.Status.CHECKIN) {
+                offset = -RNG.nextInt(0, 4);
+            } else {
+                offset = -RNG.nextInt(5, pastDays + 1); // CHECKOUT farther in the past
+            }
+
+            int nights = RNG.nextInt(1, 5);
+            LocalDate checkIn = today.plusDays(offset);
+            LocalDate checkOut = checkIn.plusDays(nights);
+            double dailyRate = RNG.nextInt(120, 800) + 0.99;
+
+            Client client = allClients.get(clientIdx % allClients.size());
+            clientIdx++;
+
+            Room room = allRooms.get(roomIdx % allRooms.size());
+            roomIdx++;
+
+            Booking.Guest guest = new Booking.Guest();
+            guest.setClientId(client.getId());
+            guest.setHolder(true);
+
+            Booking booking = new Booking();
+            booking.setRoomId(room.getId());
+            booking.setGuests(List.of(guest));
+            booking.setCheckInDate(checkIn);
+            booking.setCheckOutDate(checkOut);
+            booking.setDailyRate(dailyRate);
+            booking.setAdvancePayment(0.0);
+            booking.setStatus(status);
+            booking.setCreatedAt(LocalDateTime.now().minusDays(RNG.nextInt(15)));
+
+            if (status == Booking.Status.CANCELLED) {
+                Booking.Cancellation cancel = new Booking.Cancellation();
+                cancel.setCancelledAt(LocalDateTime.now().minusDays(3));
+                cancel.setReason("Cliente desistiu");
+                cancel.setRefundAmount(dailyRate * 0.5);
+                booking.setCancellation(cancel);
+            }
+
+            bookingRepository.save(booking);
+            System.out.println("Reserva criada: " + checkIn + " -> " + checkOut + " (" + status + ")");
+
+            if (status == Booking.Status.CHECKIN || status == Booking.Status.CHECKOUT) {
+                room.setStatus(Room.Status.OCCUPIED);
+                roomRepository.save(room);
+            }
+        }
+
+        // Set one random room to MAINTENANCE
+        if (!allRooms.isEmpty()) {
+            Room maintRoom = allRooms.get(RNG.nextInt(allRooms.size()));
+            if (maintRoom.getStatus() == Room.Status.AVAILABLE) {
+                maintRoom.setStatus(Room.Status.MAINTENANCE);
+                roomRepository.save(maintRoom);
+            }
+        }
+
+        // Create stays for CHECKIN bookings (ACTIVE)
+        List<Booking> checkinBookings = bookingRepository.findByStatus(Booking.Status.CHECKIN);
+        for (Booking b : checkinBookings) {
+            ObjectId clientId = b.getGuests().stream()
+                    .filter(Booking.Guest::isHolder)
+                    .map(Booking.Guest::getClientId)
+                    .findFirst()
+                    .orElse(null);
+
+            Stay stay = new Stay();
+            stay.setBookingId(b.getId());
+            stay.setClientId(clientId);
+            stay.setCheckInAt(b.getCheckInDate().atStartOfDay());
+            stay.setStatus(Stay.Status.ACTIVE);
+            stay.setConsumptions(new ArrayList<>());
+            stay.setTotalDailies(0);
+            stay.setTotalConsumptions(0);
+            stay.setGrandTotal(0);
+
+            int nCons = RNG.nextInt(2, 4);
+            for (int i = 0; i < nCons; i++) {
+                Product p = allProducts.get(RNG.nextInt(allProducts.size()));
+                Stay.Consumption c = new Stay.Consumption();
+                c.setId(UUID.randomUUID().toString());
+                c.setProductId(p.getId());
+                c.setProductName(p.getName());
+                c.setQuantity(RNG.nextInt(1, 4));
+                c.setUnitPrice(p.getPrice());
+                c.setRegisteredAt(stay.getCheckInAt().plusHours(RNG.nextInt(24)));
+                Stay.DeliveryStatus[] activeStatuses = {
+                        Stay.DeliveryStatus.FOR_DELIVERY,
+                        Stay.DeliveryStatus.FOR_PICKUP,
+                        Stay.DeliveryStatus.AWAITING_CONFIRMATION,
+                        Stay.DeliveryStatus.DELIVERED
+                };
+                c.setDeliveryStatus(activeStatuses[RNG.nextInt(activeStatuses.length)]);
+                c.setNotes(RNG.nextBoolean() ? "obs: " + p.getName() : null);
+                stay.getConsumptions().add(c);
+            }
+
+            stayRepository.save(stay);
+            System.out.println("Estadia ativa criada para reserva " + b.getId());
+        }
+
+        // Create stays for CHECKOUT bookings (CLOSED)
+        List<Booking> checkoutBookings = bookingRepository.findByStatus(Booking.Status.CHECKOUT);
+        for (Booking b : checkoutBookings) {
+            ObjectId clientId = b.getGuests().stream()
+                    .filter(Booking.Guest::isHolder)
+                    .map(Booking.Guest::getClientId)
+                    .findFirst()
+                    .orElse(null);
+
+            LocalDateTime checkOutAt = b.getCheckOutDate().atStartOfDay();
+            long days = ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate());
+            if (days == 0) days = 1;
+
+            double totalDailies = days * b.getDailyRate();
+            double totalConsumptions = 0;
+
+            Stay stay = new Stay();
+            stay.setBookingId(b.getId());
+            stay.setClientId(clientId);
+            stay.setCheckInAt(b.getCheckInDate().atStartOfDay());
+            stay.setCheckOutAt(checkOutAt);
+            stay.setStatus(Stay.Status.CLOSED);
+            stay.setConsumptions(new ArrayList<>());
+
+            int nCons = RNG.nextInt(2, 4);
+            for (int i = 0; i < nCons; i++) {
+                Product p = allProducts.get(RNG.nextInt(allProducts.size()));
+                Stay.Consumption c = new Stay.Consumption();
+                c.setId(UUID.randomUUID().toString());
+                c.setProductId(p.getId());
+                c.setProductName(p.getName());
+                c.setQuantity(RNG.nextInt(1, 4));
+                c.setUnitPrice(p.getPrice());
+                c.setRegisteredAt(stay.getCheckInAt().plusHours(RNG.nextInt(24)));
+
+                boolean cancelled = RNG.nextInt(5) == 0;
+                if (cancelled) {
+                    c.setDeliveryStatus(Stay.DeliveryStatus.CANCELLED);
+                } else {
+                    c.setDeliveryStatus(Stay.DeliveryStatus.DELIVERED);
+                    c.setCompletedAt(stay.getCheckInAt().plusHours(RNG.nextInt(12, 48)));
+                }
+
+                stay.getConsumptions().add(c);
+                if (!cancelled) {
+                    totalConsumptions += c.getUnitPrice() * c.getQuantity();
+                }
+            }
+
+            stay.setTotalDailies(totalDailies);
+            stay.setTotalConsumptions(totalConsumptions);
+            stay.setGrandTotal(totalDailies + totalConsumptions);
+
+            stayRepository.save(stay);
+
+            System.out.println("Estadia encerrada para reserva " + b.getId() + " (total: R$ " + stay.getGrandTotal() + ")");
+        }
+    }
+
+    private String capitalize(String s) {
+        if (s == null || s.isEmpty()) return s;
+        return Character.toUpperCase(s.charAt(0)) + s.substring(1);
     }
 }

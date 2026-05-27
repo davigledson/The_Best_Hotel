@@ -28,6 +28,7 @@ public class StayService {
     private final BookingRepository bookingRepository;
     private final RoomRepository roomRepository;
     private final ProductRepository productRepository;
+    private final UserService userService;
 
     public List<Stay> findAll() {
         return stayRepository.findAll();
@@ -88,12 +89,15 @@ public class StayService {
     }
 
     public Stay addConsumption(ObjectId stayId, ObjectId productId, int quantity,
-                                Stay.DeliveryStatus deliveryStatus, String notes) {
+                                Stay.DeliveryStatus deliveryStatus, String notes,
+                                Authentication auth) {
         Stay stay = findById(stayId);
 
         if (stay.getStatus() != Stay.Status.ACTIVE) {
             throw new RuntimeException("Stay is not active");
         }
+
+        verifyClientOwnership(stay, auth);
 
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new RuntimeException("Product not found"));
@@ -123,6 +127,8 @@ public class StayService {
         if (stay.getStatus() != Stay.Status.ACTIVE) {
             throw new RuntimeException("Stay is not active");
         }
+
+        verifyClientOwnership(stay, auth);
 
         if (stay.getConsumptions() == null) {
             throw new RuntimeException("Consumption not found");
@@ -187,5 +193,16 @@ public class StayService {
         bookingRepository.save(booking);
 
         return stayRepository.save(stay);
+    }
+
+    private void verifyClientOwnership(Stay stay, Authentication auth) {
+        boolean isClient = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_CLIENT"));
+        if (!isClient) return;
+
+        User user = userService.findByEmail(auth.getName());
+        if (user.getRefId() == null || !user.getRefId().equals(stay.getClientId())) {
+            throw new RuntimeException("Stay does not belong to authenticated client");
+        }
     }
 }
