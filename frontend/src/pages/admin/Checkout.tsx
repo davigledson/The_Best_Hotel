@@ -1,10 +1,16 @@
-import { useState } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { LogOut, BedDouble, ChevronDown, ShoppingBasket, DollarSign, CalendarCheck, X, Check } from 'lucide-react'
+import { LogOut, BedDouble, Users, CalendarCheck, ShoppingBasket, DollarSign, ChevronLeft, ChevronRight, X, Check, UserCheck } from 'lucide-react'
+import { useFindAll5 } from '../../services/booking-controller/booking-controller'
+import { useFindAll1 } from '../../services/room-controller/room-controller'
 import { useFindAll3 } from '../../services/employee-controller/employee-controller'
+import { useFindAll4 } from '../../services/client-controller/client-controller'
 import { useCheckOut, useFindAll6, getFindAll6QueryKey } from '../../services/stay-controller/stay-controller'
 import { getFindAll5QueryKey } from '../../services/booking-controller/booking-controller'
 import { useAuth } from '../../contexts/AuthContext'
+
+
+const PAGE_SIZE = 20
 
 const statusLabel: Record<string, string> = { FOR_DELIVERY: 'Para envio', FOR_PICKUP: 'Para retirada', AWAITING_CONFIRMATION: 'Aguardando confirmacao', DELIVERED: 'Entregue', CANCELLED: 'Cancelado' }
 const statusClass: Record<string, string> = { FOR_DELIVERY: 'bg-blue-100 text-blue-700', FOR_PICKUP: 'bg-yellow-100 text-yellow-700', AWAITING_CONFIRMATION: 'bg-purple-100 text-purple-700', DELIVERED: 'bg-green-100 text-green-700', CANCELLED: 'bg-red-100 text-red-500' }
@@ -19,11 +25,13 @@ function getId(obj: any): string {
 
 function formatDate(date?: string) {
   if (!date) return '—'
-  try {
-    return new Date(date).toLocaleDateString('pt-BR')
-  } catch {
-    return date
-  }
+  try { return new Date(date).toLocaleDateString('pt-BR') }
+  catch { return date }
+}
+
+function diffDaysFromNow(date?: string) {
+  if (!date) return 0
+  return Math.max(1, Math.round((Date.now() - new Date(date).getTime()) / 86400000))
 }
 
 const inputClass = "w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white"
@@ -49,16 +57,29 @@ function Modal({ open, title, onClose, children }: { open: boolean; title: strin
 export function CheckOut() {
   const queryClient = useQueryClient()
   const { user } = useAuth()
-  const [stayId, setStayId] = useState('')
+  const [page, setPage] = useState(0)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [employeeId, setEmployeeId] = useState('')
   const [success, setSuccess] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
 
   const { data: stays = [] } = useFindAll6()
+  const { data: bookings = [] } = useFindAll5()
+  const { data: rooms = [] } = useFindAll1()
   const { data: employees = [] } = useFindAll3()
+  const { data: clients = [] } = useFindAll4()
 
   const isAdmin = user?.role === 'ADMIN'
   const activeStays = stays.filter((s) => s.status === 'ACTIVE')
+
+  const roomsById = useMemo(() => new Map(rooms.map((r) => [getId(r), r])), [rooms])
+  const clientsById = useMemo(() => new Map(clients.map((c) => [getId(c), c])), [clients])
+  const bookingsById = useMemo(() => new Map(bookings.map((b) => [getId(b), b])), [bookings])
+
+  const totalPages = Math.max(1, Math.ceil(activeStays.length / PAGE_SIZE))
+  const paginated = activeStays.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+
+  const selectedStay = activeStays.find((s) => getId(s) === selectedId)
 
   const checkOutMutation = useCheckOut({
     mutation: {
@@ -67,24 +88,42 @@ export function CheckOut() {
         queryClient.invalidateQueries({ queryKey: getFindAll5QueryKey() })
         setSuccess(true)
         setShowConfirm(false)
-        setStayId('')
+        setSelectedId(null)
         setEmployeeId('')
       },
     },
   })
 
-  const selectedStay = activeStays.find((s) => getId(s) === stayId)
-  const deliveredConsumptions = (selectedStay?.consumptions ?? []).filter((c) => c.deliveryStatus === 'DELIVERED')
-  const deliveredTotal = deliveredConsumptions.reduce((acc, c) => acc + (c.unitPrice ?? 0) * (c.quantity ?? 0), 0)
+  const getRoomByBooking = useCallback((bookingId: any) => {
+    const id = typeof bookingId === 'object' && bookingId?.$oid ? bookingId.$oid : bookingId
+    const booking = bookingsById.get(String(id))
+    if (!booking) return null
+    const roomId = typeof booking.roomId === 'object' && (booking.roomId as any)?.$oid ? (booking.roomId as any).$oid : booking.roomId
+    return roomsById.get(String(roomId)) ?? null
+  }, [bookingsById, roomsById])
+
+  const getClient = useCallback((clientId: any) => {
+    const id = typeof clientId === 'object' && clientId?.$oid ? clientId.$oid : clientId
+    return clientsById.get(String(id))
+  }, [clientsById])
+
+  const deliveredTotal = useMemo(() => {
+    if (!selectedStay?.consumptions) return 0
+    return selectedStay.consumptions
+      .filter((c) => c.deliveryStatus === 'DELIVERED')
+      .reduce((acc, c) => acc + (c.unitPrice ?? 0) * (c.quantity ?? 0), 0)
+  }, [selectedStay])
+
+  const pendingCount = useMemo(() => {
+    if (!selectedStay?.consumptions) return 0
+    return selectedStay.consumptions.filter((c) => c.deliveryStatus !== 'DELIVERED' && c.deliveryStatus !== 'CANCELLED').length
+  }, [selectedStay])
 
   const handleConfirm = () => {
     setSuccess(false)
     const body: Record<string, string> = {}
     if (isAdmin) body.employeeId = employeeId
-    checkOutMutation.mutate({
-      id: stayId,
-      data: body as any,
-    })
+    checkOutMutation.mutate({ id: selectedId!, data: body as any })
   }
 
   return (
@@ -96,132 +135,165 @@ export function CheckOut() {
         <p className="text-sm text-zinc-400 mt-0.5">Registre a saida de hospedes e finalize a estadia</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {success && (
+        <div className="bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-3 rounded-lg">
+          Check-out realizado com sucesso!
+        </div>
+      )}
 
-        {/* Formulario */}
-        <div className="bg-white rounded-xl border border-zinc-100 p-6 flex flex-col gap-5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-zinc-100 flex items-center justify-center">
-              <LogOut size={18} className="text-zinc-600" />
-            </div>
-            <div>
-              <p className="font-semibold text-zinc-800">Realizar Check-out</p>
-              <p className="text-xs text-zinc-400">Selecione a estadia ativa</p>
-            </div>
+      {activeStays.length === 0 ? (
+        <div className="bg-white rounded-xl border border-zinc-100 p-16 flex flex-col items-center justify-center gap-3 text-center">
+          <LogOut size={36} className="text-zinc-200" />
+          <p className="text-zinc-400 text-sm">Nenhuma estadia ativa no momento</p>
+        </div>
+      ) : (
+        <>
+          {/* Grid de cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {paginated.map((s) => {
+              const room = getRoomByBooking(s.bookingId)
+              const client = getClient(s.clientId)
+              const days = diffDaysFromNow(s.checkInAt)
+              const totalCons = s.consumptions?.length ?? 0
+              const pendentes = s.consumptions?.filter((c) => c.deliveryStatus !== 'DELIVERED' && c.deliveryStatus !== 'CANCELLED').length ?? 0
+
+              return (
+                <button key={getId(s)} onClick={() => { setSelectedId(getId(s)); setShowConfirm(false); setEmployeeId('') }}
+                  className={`bg-white rounded-xl border p-4 flex flex-col gap-3 text-left transition-all hover:border-amber-300 hover:shadow-sm ${selectedId === getId(s) ? 'border-amber-400 ring-1 ring-amber-400' : 'border-zinc-100'}`}>
+
+                  {/* Topo */}
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-zinc-100 flex items-center justify-center shrink-0">
+                        <BedDouble size={18} className="text-zinc-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-zinc-800 truncate">
+                          Quarto {room?.number ?? '—'}
+                        </p>
+                        <p className="text-xs text-zinc-400 truncate">{room?.type || '—'}</p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 shrink-0">
+                      Ativo
+                    </span>
+                  </div>
+
+                  {/* Cliente */}
+                  <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+                    <Users size={13} className="text-zinc-300 shrink-0" />
+                    <span className="truncate">{client?.name ?? '—'}</span>
+                  </div>
+
+                  {/* Info */}
+                  <div className="border-t border-zinc-50 pt-3 grid grid-cols-2 gap-2 text-xs">
+                    <div className="flex items-center gap-1.5 text-zinc-500">
+                      <CalendarCheck size={13} className="text-zinc-300 shrink-0" />
+                      <span>Check-in: {formatDate(s.checkInAt)}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-zinc-500">
+                      <CalendarCheck size={13} className="text-zinc-300 shrink-0" />
+                      <span>{days} dia(s)</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-zinc-500">
+                      <ShoppingBasket size={13} className="text-zinc-300 shrink-0" />
+                      <span>{totalCons} consumo(s)</span>
+                    </div>
+                    {pendentes > 0 && (
+                      <div className="flex items-center gap-1.5 text-zinc-500">
+                        <ShoppingBasket size={13} className="text-amber-300 shrink-0" />
+                        <span className="text-amber-600">{pendentes} pendente(s)</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Ação */}
+                  <div className="flex gap-2 pt-1">
+                    <div className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-zinc-600 bg-zinc-100 rounded-lg">
+                      <LogOut size={13} /> Selecionar
+                    </div>
+                  </div>
+                </button>
+              )
+            })}
           </div>
 
-          {success && (
-            <div className="bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-3 rounded-lg">
-              Check-out realizado com sucesso!
+          {/* Paginacao */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <button onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0}
+                className="p-2 rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 transition-colors">
+                <ChevronLeft size={16} />
+              </button>
+              <span className="text-sm text-zinc-500 px-3">
+                {page + 1} de {totalPages}
+              </span>
+              <button onClick={() => setPage(Math.min(totalPages - 1, page + 1))} disabled={page >= totalPages - 1}
+                className="p-2 rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 transition-colors">
+                <ChevronRight size={16} />
+              </button>
             </div>
           )}
+        </>
+      )}
 
-          {checkOutMutation.isError && (
-            <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-lg">
-              Erro ao realizar check-out. Verifique os dados e tente novamente.
-            </div>
-          )}
+      {/* Modal de detalhamento */}
+      <Modal open={!!selectedStay && !showConfirm} title="Detalhes do Check-out" onClose={() => { setSelectedId(null); setSuccess(false) }}>
+        {selectedStay && (() => {
+          const room = getRoomByBooking(selectedStay.bookingId)
+          const client = getClient(selectedStay.clientId)
+          const days = diffDaysFromNow(selectedStay.checkInAt)
+          const consumptions = selectedStay.consumptions ?? []
 
-          <form onSubmit={(e) => { e.preventDefault(); setShowConfirm(true) }} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className={labelClass}>Estadia ativa</label>
-              <div className="relative">
-                <select value={stayId} onChange={(e) => { setStayId(e.target.value); setSuccess(false) }}
-                  required className={`${inputClass} appearance-none`}>
-                  <option value="">Selecione uma estadia</option>
-                  {activeStays.map((s) => (
-                    <option key={getId(s)} value={getId(s)}>
-                      Estadia — entrada {formatDate(s.checkInAt)}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
-              </div>
-              {activeStays.length === 0 && (
-                <p className="text-xs text-zinc-400">Nenhuma estadia ativa no momento</p>
-              )}
-            </div>
+          return (
+            <div className="flex flex-col gap-5">
 
-            {isAdmin && (
-              <div className="flex flex-col gap-1.5">
-                <label className={labelClass}>Funcionario responsavel</label>
-                <div className="relative">
-                  <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}
-                    required className={`${inputClass} appearance-none`}>
-                    <option value="">Selecione um funcionario</option>
-                    {employees.map((emp) => (
-                      <option key={getId(emp)} value={getId(emp)}>
-                        {emp.name}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+              {/* Info stay */}
+              <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-4 flex items-center gap-3">
+                <BedDouble size={20} className="text-zinc-500 shrink-0" />
+                <div>
+                  <p className="font-semibold text-zinc-800">Quarto {room?.number ?? '—'} — {room?.type || '—'}</p>
+                  <p className="text-xs text-zinc-500">
+                    Check-in: {formatDate(selectedStay.checkInAt)} · {days} dia(s)
+                  </p>
                 </div>
               </div>
-            )}
 
-            <button type="submit" disabled={!stayId || (isAdmin && !employeeId)}
-              className="mt-1 bg-zinc-800 hover:bg-zinc-900 disabled:opacity-50 text-white font-medium text-sm py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2">
-              <LogOut size={16} />
-              Revisar Check-out
-            </button>
-          </form>
-        </div>
-
-        {/* Resumo da estadia */}
-        <div className="flex flex-col gap-4">
-          <p className="text-sm font-medium text-zinc-500">Resumo da estadia</p>
-
-          {!selectedStay ? (
-            <div className="bg-white rounded-xl border border-dashed border-zinc-200 p-8 flex flex-col items-center justify-center gap-2 text-center">
-              <CalendarCheck size={32} className="text-zinc-200" />
-              <p className="text-sm text-zinc-400">Selecione uma estadia para ver o resumo</p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              <div className="bg-white rounded-xl border border-zinc-100 p-5 flex flex-col gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
-                    <BedDouble size={18} className="text-amber-500" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-zinc-800">Estadia ativa</p>
-                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Em andamento</span>
-                  </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs text-zinc-400">Cliente</span>
+                  <span className="text-sm font-semibold text-zinc-800">{client?.name ?? '—'}</span>
                 </div>
-
-                <div className="grid grid-cols-2 gap-3 border-t border-zinc-50 pt-4">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-xs text-zinc-400">Entrada</span>
-                    <span className="text-sm font-medium text-zinc-800">{formatDate(selectedStay.checkInAt)}</span>
-                  </div>
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-xs text-zinc-400">Total de diarias</span>
-                    <span className="text-sm font-medium text-zinc-800">R$ {selectedStay.totalDailies?.toFixed(2) ?? '—'}</span>
-                  </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs text-zinc-400">Total diarias</span>
+                  <span className="text-sm font-semibold text-zinc-800">R$ {selectedStay.totalDailies?.toFixed(2) ?? '0.00'}</span>
                 </div>
               </div>
 
               {/* Consumos */}
-              {selectedStay.consumptions && selectedStay.consumptions.length > 0 && (
-                <div className="bg-white rounded-xl border border-zinc-100 p-5 flex flex-col gap-3">
-                  <div className="flex items-center gap-2 text-sm font-medium text-zinc-700">
-                    <ShoppingBasket size={15} className="text-amber-400" />
+              {consumptions.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-1.5 text-sm font-medium text-zinc-700">
+                    <ShoppingBasket size={14} className="text-amber-400" />
                     Consumos
                   </div>
-                  <div className="flex flex-col gap-2">
-                    {selectedStay.consumptions.map((c, i) => (
-                      <div key={i} className="flex items-center justify-between text-sm">
-                        <div className="flex flex-col">
-                          <span className={`${c.deliveryStatus === 'CANCELLED' ? 'line-through text-zinc-300' : 'text-zinc-700'}`}>{c.productName}</span>
+                  <div className="flex flex-col gap-1.5">
+                    {consumptions.map((c, i) => (
+                      <div key={c.id ?? i} className="flex items-center justify-between text-sm">
+                        <div className="flex flex-col min-w-0">
+                          <span className={`truncate ${c.deliveryStatus === 'CANCELLED' ? 'line-through text-zinc-300' : 'text-zinc-700'}`}>
+                            {c.productName}
+                          </span>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <span className={`text-xs ${c.deliveryStatus === 'CANCELLED' ? 'line-through text-zinc-300' : 'text-zinc-400'}`}>x{c.quantity} — R$ {c.unitPrice?.toFixed(2)} un.</span>
+                            <span className={`text-xs ${c.deliveryStatus === 'CANCELLED' ? 'line-through text-zinc-300' : 'text-zinc-400'}`}>
+                              x{c.quantity} — R$ {c.unitPrice?.toFixed(2)} un.
+                            </span>
                             <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${statusClass[c.deliveryStatus ?? ''] ?? ''}`}>
                               {statusLabel[c.deliveryStatus ?? ''] ?? c.deliveryStatus}
                             </span>
                           </div>
                         </div>
-                        <span className={`font-medium ${c.deliveryStatus === 'CANCELLED' ? 'line-through text-zinc-300' : 'text-zinc-800'}`}>
+                        <span className={`font-medium shrink-0 ${c.deliveryStatus === 'CANCELLED' ? 'line-through text-zinc-300' : 'text-zinc-800'}`}>
                           R$ {((c.quantity ?? 0) * (c.unitPrice ?? 0)).toFixed(2)}
                         </span>
                       </div>
@@ -231,13 +303,13 @@ export function CheckOut() {
                     <span className="text-zinc-500">Total consumos (entregues)</span>
                     <span className="font-medium text-zinc-800">R$ {deliveredTotal.toFixed(2)}</span>
                   </div>
-                  {deliveredConsumptions.length < (selectedStay.consumptions?.length ?? 0) && (
-                    <p className="text-xs text-zinc-400">Consumos pendentes serao desconsiderados no momento do check-out.</p>
+                  {pendingCount > 0 && (
+                    <p className="text-xs text-zinc-400">{pendingCount} consumo(s) pendente(s) serao desconsiderados no check-out.</p>
                   )}
                 </div>
               )}
 
-              {/* Total geral */}
+              {/* Total */}
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center justify-between">
                 <div className="flex items-center gap-2 text-amber-700 font-medium">
                   <DollarSign size={16} />
@@ -247,80 +319,119 @@ export function CheckOut() {
                   R$ {((selectedStay.totalDailies ?? 0) + deliveredTotal).toFixed(2)}
                 </span>
               </div>
+
+              {/* Responsavel */}
+              {isAdmin ? (
+                <div className="flex flex-col gap-1.5">
+                  <label className={labelClass}>Funcionario responsavel</label>
+                  <div className="relative">
+                    <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}
+                      required className={`${inputClass} appearance-none`}>
+                      <option value="">Selecione um funcionario</option>
+                      {employees.map((emp) => (
+                        <option key={getId(emp)} value={getId(emp)}>{emp.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-sm text-zinc-500 bg-zinc-50 rounded-lg px-4 py-3">
+                  <UserCheck size={16} className="text-zinc-400" />
+                  Responsavel: <span className="font-medium text-zinc-700">{user?.email}</span>
+                </div>
+              )}
+
+              <div className="flex gap-2 justify-end pt-1">
+                <button onClick={() => setSelectedId(null)}
+                  className="px-4 py-2 text-sm text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors">
+                  Voltar
+                </button>
+                <button onClick={() => setShowConfirm(true)} disabled={isAdmin && !employeeId}
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-zinc-800 hover:bg-zinc-900 disabled:opacity-50 rounded-lg transition-colors">
+                  <LogOut size={15} />
+                  Realizar Check-out
+                </button>
+              </div>
             </div>
-          )}
-        </div>
-      </div>
+          )
+        })()}
+      </Modal>
 
       {/* Modal de confirmacao */}
       <Modal open={showConfirm} title="Confirmar Check-out" onClose={() => !checkOutMutation.isPending && setShowConfirm(false)}>
-        {selectedStay && (
-          <div className="flex flex-col gap-5">
-            <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-4 flex items-center gap-3">
-              <BedDouble size={20} className="text-zinc-500 shrink-0" />
-              <div>
-                <p className="font-semibold text-zinc-800">Check-out — Estadia ativa</p>
-                <p className="text-xs text-zinc-500">Entrada em {formatDate(selectedStay.checkInAt)}</p>
-              </div>
-            </div>
+        {selectedStay && (() => {
+          const room = getRoomByBooking(selectedStay.bookingId)
 
-            <div className="flex flex-col gap-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-zinc-500">Total de diarias</span>
-                <span className="font-semibold text-zinc-800">R$ {selectedStay.totalDailies?.toFixed(2) ?? '0.00'}</span>
+          return (
+            <div className="flex flex-col gap-5">
+              <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-4 flex items-center gap-3">
+                <BedDouble size={20} className="text-zinc-500 shrink-0" />
+                <div>
+                  <p className="font-semibold text-zinc-800">Check-out — Quarto {room?.number ?? '—'}</p>
+                  <p className="text-xs text-zinc-500">Entrada em {formatDate(selectedStay.checkInAt)}</p>
+                </div>
               </div>
 
-              {selectedStay.consumptions && selectedStay.consumptions.length > 0 && (
-                <div className="flex flex-col gap-2 border-t border-zinc-100 pt-3">
-                  <div className="flex items-center gap-1.5 text-sm font-medium text-zinc-700">
-                    <ShoppingBasket size={14} className="text-amber-400" />
-                    Consumos
-                  </div>
-                  {selectedStay.consumptions.map((c, i) => (
-                      <div key={i} className="flex justify-between text-sm ml-5">
+              <div className="flex flex-col gap-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-500">Total de diarias</span>
+                  <span className="font-semibold text-zinc-800">R$ {selectedStay.totalDailies?.toFixed(2) ?? '0.00'}</span>
+                </div>
+
+                {selectedStay.consumptions && selectedStay.consumptions.length > 0 && (
+                  <div className="flex flex-col gap-2 border-t border-zinc-100 pt-3">
+                    <div className="flex items-center gap-1.5 text-sm font-medium text-zinc-700">
+                      <ShoppingBasket size={14} className="text-amber-400" />
+                      Consumos
+                    </div>
+                    {selectedStay.consumptions.map((c, i) => (
+                      <div key={c.id ?? i} className="flex justify-between text-sm ml-5">
                         <span className={`${c.deliveryStatus === 'CANCELLED' ? 'line-through text-zinc-300' : 'text-zinc-600'}`}>
                           {c.productName} <span className="text-zinc-400">x{c.quantity}</span>
                           <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full font-medium ${statusClass[c.deliveryStatus ?? ''] ?? ''}`}>
                             {statusLabel[c.deliveryStatus ?? ''] ?? c.deliveryStatus}
                           </span>
                         </span>
-                        <span className={`${c.deliveryStatus === 'CANCELLED' ? 'line-through text-zinc-300' : 'text-zinc-700'}`}>R$ {((c.quantity ?? 0) * (c.unitPrice ?? 0)).toFixed(2)}</span>
+                        <span className={`${c.deliveryStatus === 'CANCELLED' ? 'line-through text-zinc-300' : 'text-zinc-700'}`}>
+                          R$ {((c.quantity ?? 0) * (c.unitPrice ?? 0)).toFixed(2)}
+                        </span>
                       </div>
-                  ))}
-                  <div className="flex justify-between text-sm ml-5 border-t border-zinc-50 pt-1">
-                    <span className="text-zinc-500">Subtotal consumos (entregues)</span>
-                    <span className="font-medium text-zinc-800">R$ {deliveredTotal.toFixed(2)}</span>
+                    ))}
+                    <div className="flex justify-between text-sm ml-5 border-t border-zinc-50 pt-1">
+                      <span className="text-zinc-500">Subtotal consumos (entregues)</span>
+                      <span className="font-medium text-zinc-800">R$ {deliveredTotal.toFixed(2)}</span>
+                    </div>
                   </div>
+                )}
+
+                <div className="flex justify-between items-center border-t border-zinc-100 pt-3">
+                  <span className="text-sm font-medium text-zinc-700">Total geral</span>
+                  <span className="text-lg font-bold text-amber-600">
+                    R$ {((selectedStay.totalDailies ?? 0) + deliveredTotal).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              {checkOutMutation.isError && (
+                <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-lg">
+                  Erro ao realizar check-out. Verifique os dados e tente novamente.
                 </div>
               )}
 
-              <div className="flex justify-between items-center border-t border-zinc-100 pt-3">
-                <span className="text-sm font-medium text-zinc-700">Total geral</span>
-                <span className="text-lg font-bold text-amber-600">
-                  R$ {((selectedStay.totalDailies ?? 0) + deliveredTotal).toFixed(2)}
-                </span>
+              <div className="flex gap-2 justify-end pt-1">
+                <button onClick={() => setShowConfirm(false)} disabled={checkOutMutation.isPending}
+                  className="px-4 py-2 text-sm text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors">
+                  Voltar
+                </button>
+                <button onClick={handleConfirm} disabled={checkOutMutation.isPending}
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-zinc-800 hover:bg-zinc-900 disabled:opacity-50 rounded-lg transition-colors">
+                  <Check size={15} />
+                  {checkOutMutation.isPending ? 'Processando...' : 'Confirmar Check-out'}
+                </button>
               </div>
             </div>
-
-            {checkOutMutation.isError && (
-              <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-lg">
-                Erro ao realizar check-out. Verifique os dados e tente novamente.
-              </div>
-            )}
-
-            <div className="flex gap-2 justify-end pt-1">
-              <button onClick={() => setShowConfirm(false)} disabled={checkOutMutation.isPending}
-                className="px-4 py-2 text-sm text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors">
-                Voltar
-              </button>
-              <button onClick={handleConfirm} disabled={checkOutMutation.isPending}
-                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-zinc-800 hover:bg-zinc-900 disabled:opacity-50 rounded-lg transition-colors">
-                <Check size={15} />
-                {checkOutMutation.isPending ? 'Processando...' : 'Confirmar Check-out'}
-              </button>
-            </div>
-          </div>
-        )}
+          )
+        })()}
       </Modal>
     </div>
   )
