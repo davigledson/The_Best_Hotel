@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { LogOut, BedDouble, Users, CalendarCheck, ShoppingBasket, DollarSign, ChevronLeft, ChevronRight, X, Check, UserCheck } from 'lucide-react'
 import { useFindAll5 } from '../../services/booking-controller/booking-controller'
@@ -71,6 +72,20 @@ export function CheckOut() {
 
   const isAdmin = user?.role === 'ADMIN'
   const activeStays = stays.filter((s) => s.status === 'ACTIVE')
+
+  const [searchParams, setSearchParams] = useSearchParams()
+  useEffect(() => {
+    const stayId = searchParams.get('stayId')
+    if (stayId && activeStays.length > 0) {
+      const found = activeStays.find((s) => getId(s) === stayId)
+      if (found) {
+        setSelectedId(stayId)
+        setSuccess(false)
+        setShowConfirm(false)
+      }
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, activeStays])
 
   const roomsById = useMemo(() => new Map(rooms.map((r) => [getId(r), r])), [rooms])
   const clientsById = useMemo(() => new Map(clients.map((c) => [getId(c), c])), [clients])
