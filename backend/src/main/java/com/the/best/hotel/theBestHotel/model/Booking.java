@@ -19,6 +19,7 @@ public class Booking {
     @JsonSerialize(using = ToStringSerializer.class)
     private ObjectId id;
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private ObjectId roomId;
 
     private List<Guest> guests;
@@ -41,6 +42,7 @@ public class Booking {
 
     @Data
     public static class Guest {
+        @JsonSerialize(using = ToStringSerializer.class)
         private ObjectId clientId;
         private boolean holder;
     }

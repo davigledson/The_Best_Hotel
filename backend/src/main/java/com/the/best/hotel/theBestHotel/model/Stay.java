@@ -18,16 +18,20 @@ public class Stay {
     @JsonSerialize(using = ToStringSerializer.class)
     private ObjectId id;
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private ObjectId bookingId;
 
     private LocalDateTime checkInAt;
 
     private LocalDateTime checkOutAt;
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private ObjectId checkInEmployeeId;
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private ObjectId checkOutEmployeeId;
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private ObjectId clientId;
 
     private List<Consumption> consumptions;

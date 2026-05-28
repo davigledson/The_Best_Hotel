@@ -149,9 +149,9 @@ export function CheckIn() {
                       </div>
                       <div className="min-w-0">
                         <p className="font-semibold text-zinc-800 truncate">
-                          Quarto {room?.number ?? '—'}
+                          {room?.number ? `Quarto ${room.number}` : 'Sem quarto'}
                         </p>
-                        <p className="text-xs text-zinc-400 truncate">{room?.type || '—'}</p>
+                        <p className="text-xs text-zinc-400 truncate">{room?.type ?? 'Tipo não definido'}</p>
                       </div>
                     </div>
                     <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-verde/10 text-verde shrink-0">
@@ -162,7 +162,7 @@ export function CheckIn() {
                   {/* Cliente */}
                   <div className="flex items-center gap-1.5 text-xs text-zinc-500">
                     <Users size={13} className="text-zinc-300 shrink-0" />
-                    <span className="truncate">{client?.name ?? '—'}</span>
+                    <span className="truncate">{client?.name ?? 'Hóspede não identificado'}</span>
                   </div>
 
                   {/* Datas + diaria */}
@@ -173,7 +173,7 @@ export function CheckIn() {
                     </div>
                     <div className="flex items-center gap-1.5 text-zinc-500">
                       <DollarSign size={13} className="text-zinc-300 shrink-0" />
-                      <span>R$ {b.dailyRate?.toFixed(2)}/dia · {nights} noite(s)</span>
+                      <span>R$ {(b.dailyRate ?? 0).toFixed(2)}/dia · {nights} noite(s)</span>
                     </div>
                   </div>
 
@@ -222,7 +222,7 @@ export function CheckIn() {
               <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-center gap-3">
                 <BedDouble size={20} className="text-blue-500 shrink-0" />
                 <div>
-                  <p className="font-semibold text-zinc-800">Quarto {room?.number ?? '—'} — {room?.type || '—'}</p>
+                  <p className="font-semibold text-zinc-800">{room?.number ? `Quarto ${room.number}` : 'Sem quarto'} — {room?.type ?? 'Tipo não definido'}</p>
                   <p className="text-xs text-zinc-500">
                     {formatDate(selectedBooking.checkInDate)} ate {formatDate(selectedBooking.checkOutDate)} · {nights} noite(s)
                   </p>
@@ -232,7 +232,7 @@ export function CheckIn() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-0.5">
                   <span className="text-xs text-zinc-400">Cliente</span>
-                  <span className="text-sm font-semibold text-zinc-800">{client?.name ?? '—'}</span>
+                  <span className="text-sm font-semibold text-zinc-800">{client?.name ?? 'Hóspede não identificado'}</span>
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-xs text-zinc-400">Diaria</span>
@@ -305,11 +305,11 @@ export function CheckIn() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-0.5">
                   <span className="text-xs text-zinc-400">Diaria</span>
-                  <span className="text-sm font-semibold text-zinc-800">R$ {selectedBooking.dailyRate?.toFixed(2)}</span>
+                  <span className="text-sm font-semibold text-zinc-800">R$ {(selectedBooking.dailyRate ?? 0).toFixed(2)}</span>
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-xs text-zinc-400">Adiantamento</span>
-                  <span className="text-sm font-semibold text-zinc-800">R$ {selectedBooking.advancePayment?.toFixed(2)}</span>
+                  <span className="text-sm font-semibold text-zinc-800">R$ {(selectedBooking.advancePayment ?? 0).toFixed(2)}</span>
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-xs text-zinc-400">Hospedes</span>

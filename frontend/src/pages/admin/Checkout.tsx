@@ -171,6 +171,12 @@ export function CheckOut() {
               const days = diffDaysFromNow(s.checkInAt)
               const totalCons = s.consumptions?.length ?? 0
               const pendentes = s.consumptions?.filter((c) => c.deliveryStatus !== 'DELIVERED' && c.deliveryStatus !== 'CANCELLED').length ?? 0
+              const deliveredCons = s.consumptions?.filter((c) => c.deliveryStatus === 'DELIVERED').length ?? 0
+              const deliveredValue = s.consumptions?.filter((c) => c.deliveryStatus === 'DELIVERED').reduce((acc, c) => acc + (c.unitPrice ?? 0) * (c.quantity ?? 0), 0) ?? 0
+
+              const roomLabel = room?.number ? `Quarto ${room.number}` : 'Sem quarto'
+              const clientLabel = client?.name ?? 'Hóspede não identificado'
+              const dateLabel = s.checkInAt ? `Check-in: ${formatDate(s.checkInAt)}` : 'Check-in pendente'
 
               return (
                 <button key={getId(s)} onClick={() => { setSelectedId(getId(s)); setShowConfirm(false); setEmployeeId('') }}
@@ -183,10 +189,8 @@ export function CheckOut() {
                         <BedDouble size={18} className="text-zinc-600" />
                       </div>
                       <div className="min-w-0">
-                        <p className="font-semibold text-zinc-800 truncate">
-                          Quarto {room?.number ?? '—'}
-                        </p>
-                        <p className="text-xs text-zinc-400 truncate">{room?.type || '—'}</p>
+                        <p className="font-semibold text-zinc-800 truncate">{roomLabel}</p>
+                        <p className="text-xs text-zinc-400 truncate">{room?.type ?? 'Tipo não definido'}</p>
                       </div>
                     </div>
                     <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 shrink-0">
@@ -197,14 +201,14 @@ export function CheckOut() {
                   {/* Cliente */}
                   <div className="flex items-center gap-1.5 text-xs text-zinc-500">
                     <Users size={13} className="text-zinc-300 shrink-0" />
-                    <span className="truncate">{client?.name ?? '—'}</span>
+                    <span className="truncate">{clientLabel}</span>
                   </div>
 
                   {/* Info */}
-                  <div className="border-t border-zinc-50 pt-3 grid grid-cols-2 gap-2 text-xs">
+                  <div className="border-t border-zinc-50 pt-3 grid grid-cols-2 gap-x-2 gap-y-2.5 text-xs">
                     <div className="flex items-center gap-1.5 text-zinc-500">
                       <CalendarCheck size={13} className="text-zinc-300 shrink-0" />
-                      <span>Check-in: {formatDate(s.checkInAt)}</span>
+                      <span>{dateLabel}</span>
                     </div>
                     <div className="flex items-center gap-1.5 text-zinc-500">
                       <CalendarCheck size={13} className="text-zinc-300 shrink-0" />
@@ -212,21 +216,34 @@ export function CheckOut() {
                     </div>
                     <div className="flex items-center gap-1.5 text-zinc-500">
                       <ShoppingBasket size={13} className="text-zinc-300 shrink-0" />
-                      <span>{totalCons} consumo(s)</span>
+                      <span>{deliveredValue > 0 ? `R$ ${deliveredValue.toFixed(2)}` : `${totalCons} consumo(s)`}</span>
                     </div>
-                    {pendentes > 0 && (
-                      <div className="flex items-center gap-1.5 text-zinc-500">
+                    {pendentes > 0 ? (
+                      <div className="flex items-center gap-1.5 text-amber-600">
                         <ShoppingBasket size={13} className="text-amber-300 shrink-0" />
-                        <span className="text-amber-600">{pendentes} pendente(s)</span>
+                        <span className="font-medium">{pendentes} pendente(s)</span>
+                      </div>
+                    ) : totalCons > 0 && (
+                      <div className="flex items-center gap-1.5 text-verde">
+                        <Check size={13} className="shrink-0" />
+                        <span className="font-medium">Finalizado</span>
                       </div>
                     )}
                   </div>
 
-                  {/* Ação */}
-                  <div className="flex gap-2 pt-1">
-                    <div className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-zinc-600 bg-zinc-100 rounded-lg">
-                      <LogOut size={13} /> Selecionar
+                  {/* Barra de progresso */}
+                  {totalCons > 0 && (
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-verde rounded-full transition-all" style={{ width: `${(deliveredCons / totalCons) * 100}%` }} />
+                      </div>
+                      <span className="text-[11px] text-zinc-400 shrink-0">{deliveredCons}/{totalCons}</span>
                     </div>
+                  )}
+
+                  {/* Ação */}
+                  <div className="flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-zinc-600 bg-zinc-100 rounded-lg hover:bg-zinc-200 transition-colors">
+                    <LogOut size={13} /> Selecionar
                   </div>
                 </button>
               )
@@ -267,7 +284,7 @@ export function CheckOut() {
               <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-4 flex items-center gap-3">
                 <BedDouble size={20} className="text-zinc-500 shrink-0" />
                 <div>
-                  <p className="font-semibold text-zinc-800">Quarto {room?.number ?? '—'} — {room?.type || '—'}</p>
+                  <p className="font-semibold text-zinc-800">{room?.number ? `Quarto ${room.number}` : 'Sem quarto'} — {room?.type ?? 'Tipo não definido'}</p>
                   <p className="text-xs text-zinc-500">
                     Check-in: {formatDate(selectedStay.checkInAt)} · {days} dia(s)
                   </p>
@@ -277,7 +294,7 @@ export function CheckOut() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-0.5">
                   <span className="text-xs text-zinc-400">Cliente</span>
-                  <span className="text-sm font-semibold text-zinc-800">{client?.name ?? '—'}</span>
+                  <span className="text-sm font-semibold text-zinc-800">{client?.name ?? 'Hóspede não identificado'}</span>
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-xs text-zinc-400">Total diarias</span>
@@ -382,7 +399,7 @@ export function CheckOut() {
               <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-4 flex items-center gap-3">
                 <BedDouble size={20} className="text-zinc-500 shrink-0" />
                 <div>
-                  <p className="font-semibold text-zinc-800">Check-out — Quarto {room?.number ?? '—'}</p>
+                  <p className="font-semibold text-zinc-800">Check-out — {room?.number ? `Quarto ${room.number}` : 'Sem quarto'}</p>
                   <p className="text-xs text-zinc-500">Entrada em {formatDate(selectedStay.checkInAt)}</p>
                 </div>
               </div>
