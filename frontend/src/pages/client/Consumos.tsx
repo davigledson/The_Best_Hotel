@@ -17,7 +17,7 @@ const statusClass: Record<string, string> = {
   FOR_DELIVERY: 'bg-blue-100 text-blue-700',
   FOR_PICKUP: 'bg-yellow-100 text-yellow-700',
   AWAITING_CONFIRMATION: 'bg-purple-100 text-purple-700',
-  DELIVERED: 'bg-green-100 text-green-700',
+  DELIVERED: 'bg-verde/10 text-verde',
   CANCELLED: 'bg-red-100 text-red-500',
 }
 
@@ -134,7 +134,7 @@ export function Consumos() {
                 </div>
                 <button
                   onClick={() => { setOrderStayId(getId(stay)); setOrderForm({ productId: '', quantity: '1', deliveryStatus: 'FOR_DELIVERY', notes: '' }) }}
-                  className="flex items-center gap-1.5 bg-amber-400 hover:bg-amber-500 text-zinc-900 font-medium text-xs px-3 py-2 rounded-lg transition-colors"
+                  className="flex items-center gap-1.5 bg-amber-400 hover:bg-laranja text-zinc-900 font-medium text-xs px-3 py-2 rounded-lg transition-colors"
                 >
                   <Plus size={14} />
                   Fazer pedido
@@ -196,7 +196,7 @@ export function Consumos() {
                 value={orderForm.productId}
                 onChange={(e) => setOrderForm({ ...orderForm, productId: e.target.value })}
                 required
-                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-amber-400 appearance-none"
+                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-verde appearance-none"
               >
                 <option value="">Selecione</option>
                 {activeProducts.map((p) => (
@@ -215,7 +215,7 @@ export function Consumos() {
               type="number" min={1} value={orderForm.quantity}
               onChange={(e) => setOrderForm({ ...orderForm, quantity: e.target.value })}
               required
-              className="border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
+              className="border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-verde"
             />
           </div>
 
@@ -225,7 +225,7 @@ export function Consumos() {
               <select
                 value={orderForm.deliveryStatus}
                 onChange={(e) => setOrderForm({ ...orderForm, deliveryStatus: e.target.value as DeliveryStatus })}
-                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-amber-400 appearance-none"
+                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-verde appearance-none"
               >
                 {clientStatusOptions.map((s) => (
                   <option key={s} value={s}>{statusLabel[s]}</option>
@@ -241,7 +241,7 @@ export function Consumos() {
               type="text" value={orderForm.notes}
               onChange={(e) => setOrderForm({ ...orderForm, notes: e.target.value })}
               placeholder="Opcional"
-              className="border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-amber-400 placeholder:text-zinc-300"
+              className="border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-verde placeholder:text-zinc-300"
             />
           </div>
 
@@ -253,7 +253,7 @@ export function Consumos() {
 
           <button
             type="submit" disabled={createConsumption.isPending}
-            className="bg-amber-400 hover:bg-amber-500 disabled:opacity-50 text-zinc-900 font-medium text-sm py-2.5 rounded-lg transition-colors"
+            className="bg-amber-400 hover:bg-laranja disabled:opacity-50 text-zinc-900 font-medium text-sm py-2.5 rounded-lg transition-colors"
           >
             {createConsumption.isPending ? 'Registrando...' : 'Confirmar pedido'}
           </button>

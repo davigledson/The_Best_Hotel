@@ -135,7 +135,7 @@ export function Dashboard() {
 
   const bookingStatusConfig: Record<string, { label: string; color: string }> = {
     PENDING:   { label: 'Pendente',   color: 'bg-yellow-100 text-yellow-700' },
-    CONFIRMED: { label: 'Confirmada', color: 'bg-green-100 text-green-700' },
+    CONFIRMED: { label: 'Confirmada', color: 'bg-verde/10 text-verde' },
     CANCELLED: { label: 'Cancelada',  color: 'bg-red-100 text-red-600' },
     CHECKIN:   { label: 'Check-in',   color: 'bg-blue-100 text-blue-700' },
     CHECKOUT:  { label: 'Check-out',  color: 'bg-zinc-100 text-zinc-600' },

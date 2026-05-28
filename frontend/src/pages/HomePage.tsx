@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Hotel, BedDouble, ShoppingBasket, CalendarCheck, ArrowRight } from 'lucide-react'
+import { BedDouble, ShoppingBasket, CalendarCheck, ArrowRight } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import mainLogo from '../assets/main-logo.png'
+import miniLogo from '../assets/mini-logo.svg'
 
 const features = [
   {
@@ -61,10 +63,10 @@ export function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 flex flex-col">
+    <div className="min-h-screen bg-branco flex flex-col">
       <header className="flex items-center justify-between px-8 py-4 bg-white border-b border-zinc-100">
         <div className="flex items-center gap-2">
-          <Hotel size={22} className="text-amber-400" />
+          <img src={miniLogo} alt="The Best Hotel" className="w-5 h-5" />
           <span className="font-semibold text-zinc-800 text-sm">The Best Hotel</span>
         </div>
         <div className="flex items-center gap-3">
@@ -89,23 +91,20 @@ export function HomePage() {
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col lg:flex-row items-center justify-center px-6 py-12 lg:py-20 gap-12 lg:gap-16">
-        <div className="flex flex-col items-center lg:items-start text-center lg:text-left gap-5 max-w-md">
-          <div className="w-16 h-16 rounded-2xl bg-amber-400 flex items-center justify-center">
-            <Hotel size={32} className="text-zinc-900" />
+      <main className="flex-1 grid grid-cols-1 lg:grid-cols-2 items-center px-6 py-12 lg:py-20 gap-12 lg:gap-16">
+        <div className="flex flex-col items-center lg:items-start text-center lg:text-left gap-5 w-full max-w-4xl">
+          <div className="flex flex-col items-center lg:items-start gap-2">
+            <p className="text-lg font-semibold text-amber-700 tracking-wide">Bem vindo ao</p>
+            <img src={mainLogo} alt="The Best Hotel" className="w-full h-auto block" />
           </div>
           <div className="flex flex-col gap-2">
-            <h1 className="text-4xl lg:text-5xl font-semibold text-zinc-800 leading-tight">
-              Bem-vindo ao<br />
-              <span className="text-amber-400">The Best Hotel</span>
-            </h1>
             <p className="text-zinc-400 text-base leading-relaxed">
               Conforto, praticidade e atendimento de qualidade para tornar sua estadia inesquecivel.
             </p>
           </div>
         </div>
 
-        <div className="w-full max-w-sm shrink-0">
+        <div className="w-full max-w-sm">
           {isAuthenticated ? (
             <div className="bg-white rounded-xl border border-zinc-100 p-8 flex flex-col items-center gap-5 text-center">
               <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
@@ -117,7 +116,7 @@ export function HomePage() {
               </div>
               <button
                 onClick={goToDashboard}
-                className="flex items-center gap-2 bg-amber-400 hover:bg-amber-500 text-zinc-900 font-medium text-sm px-6 py-3 rounded-lg transition-colors"
+                className="flex items-center gap-2 bg-amber-400 hover:bg-laranja text-zinc-900 font-medium text-sm px-6 py-3 rounded-lg transition-colors"
               >
                 Ir para o painel
                 <ArrowRight size={16} />
@@ -145,7 +144,7 @@ export function HomePage() {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="seu@email.com"
                     required
-                    className="w-full px-3 py-2.5 border border-zinc-200 rounded-lg text-sm text-zinc-800 placeholder-zinc-300 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    className="w-full px-3 py-2.5 border border-zinc-200 rounded-lg text-sm text-zinc-800 placeholder-zinc-300 focus:outline-none focus:ring-2 focus:ring-verde"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -156,7 +155,7 @@ export function HomePage() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     required
-                    className="w-full px-3 py-2.5 border border-zinc-200 rounded-lg text-sm text-zinc-800 placeholder-zinc-300 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    className="w-full px-3 py-2.5 border border-zinc-200 rounded-lg text-sm text-zinc-800 placeholder-zinc-300 focus:outline-none focus:ring-2 focus:ring-verde"
                   />
                 </div>
               </div>
@@ -164,7 +163,7 @@ export function HomePage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-amber-400 hover:bg-amber-500 disabled:bg-amber-200 text-zinc-900 font-medium text-sm px-4 py-2.5 rounded-lg transition-colors"
+                className="w-full bg-amber-400 hover:bg-laranja disabled:bg-amber-200 text-zinc-900 font-medium text-sm px-4 py-2.5 rounded-lg transition-colors"
               >
                 {loading ? 'Entrando...' : 'Entrar'}
               </button>
@@ -199,7 +198,7 @@ export function HomePage() {
         </div>
       </section>
 
-      <footer className="text-center py-5 text-xs text-zinc-300 border-t border-zinc-100 bg-white">
+      <footer className="text-center py-5 text-xs text-white/60 bg-verde">
         © {new Date().getFullYear()} The Best Hotel. Todos os direitos reservados.
       </footer>
     </div>

@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { Hotel, CalendarCheck, BedDouble, UtensilsCrossed, LogOut } from 'lucide-react'
+import { CalendarCheck, BedDouble, Hotel, UtensilsCrossed, LogOut } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 const navItems = [

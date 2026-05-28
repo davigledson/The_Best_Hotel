@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { Hotel, Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff } from 'lucide-react'
+import mainLogo from '../assets/main-logo.png'
 
 function formatCPF(value: string) {
   return value
@@ -68,21 +69,16 @@ export function RegisterPage() {
     }
   }
 
-  const inputClass = "w-full px-3 py-2.5 border border-zinc-200 rounded-lg text-sm text-zinc-800 placeholder-zinc-300 focus:outline-none focus:ring-2 focus:ring-amber-400"
+  const inputClass = "w-full px-3 py-2.5 border border-zinc-200 rounded-lg text-sm text-zinc-800 placeholder-zinc-300 focus:outline-none focus:ring-2 focus:ring-verde"
 
   return (
-    <div className="min-h-screen bg-zinc-50 flex items-center justify-center px-4 py-8">
-      <div className="w-full max-w-sm">
-        <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-zinc-100 p-8 flex flex-col gap-5">
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-amber-400 flex items-center justify-center">
-              <Hotel size={24} className="text-zinc-900" />
-            </div>
-            <div className="text-center">
-              <h1 className="text-lg font-semibold text-zinc-800">Criar conta</h1>
-              <p className="text-sm text-zinc-400">Preencha os dados para se cadastrar</p>
-            </div>
-          </div>
+    <div className="min-h-screen bg-branco flex flex-col items-center justify-center w-full px-4 gap-10 py-12">
+      <div className="flex flex-col items-center gap-3 w-full max-w-sm">
+        <p className="text-sm font-medium text-amber-700">Bem vindo ao</p>
+        <img src={mainLogo} alt="The Best Hotel" className="w-full h-auto block" />
+      </div>
+      <form onSubmit={handleSubmit} className="w-full max-w-sm bg-white rounded-xl border border-zinc-100 p-8 flex flex-col gap-5">
+        <p className="text-sm text-zinc-400 text-center">Criar sua conta</p>
 
           {error && (
             <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2.5 text-center">
@@ -136,7 +132,7 @@ export function RegisterPage() {
           </div>
 
           <button type="submit" disabled={loading}
-            className="w-full bg-amber-400 hover:bg-amber-500 disabled:bg-amber-200 text-zinc-900 font-medium text-sm px-4 py-2.5 rounded-lg transition-colors">
+            className="w-full bg-amber-400 hover:bg-laranja disabled:bg-amber-200 text-zinc-900 font-medium text-sm px-4 py-2.5 rounded-lg transition-colors">
             {loading ? 'Cadastrando...' : 'Cadastrar'}
           </button>
 
@@ -145,7 +141,6 @@ export function RegisterPage() {
             <Link to="/login" className="text-amber-600 hover:text-amber-700 font-medium">Faca login</Link>
           </p>
         </form>
-      </div>
     </div>
   )
 }

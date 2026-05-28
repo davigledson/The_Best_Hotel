@@ -20,7 +20,7 @@ function getId(p: Product): string {
   return id.toString()
 }
 
-const inputClass = "w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent placeholder:text-zinc-300"
+const inputClass = "w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-verde focus:border-transparent placeholder:text-zinc-300"
 const labelClass = "text-xs font-medium text-zinc-500 uppercase tracking-wide"
 
 interface ModalProps { open: boolean; title: string; onClose: () => void; children: React.ReactNode }
@@ -78,7 +78,7 @@ function ProductForm({ initial, onSubmit, loading, submitLabel }: FormProps) {
       </div>
 
       <button type="submit" disabled={loading}
-        className="mt-1 bg-amber-400 hover:bg-amber-500 disabled:opacity-50 text-zinc-900 font-medium text-sm py-2.5 rounded-lg transition-colors">
+        className="mt-1 bg-amber-400 hover:bg-laranja disabled:opacity-50 text-zinc-900 font-medium text-sm py-2.5 rounded-lg transition-colors">
         {loading ? 'Salvando...' : submitLabel}
       </button>
     </form>
@@ -124,7 +124,7 @@ export function Produtos() {
           <p className="text-sm text-zinc-400 mt-0.5">Gerencie os produtos e consumiveis do hotel</p>
         </div>
         <button onClick={() => setModalCreate(true)}
-          className="flex items-center gap-2 bg-amber-400 hover:bg-amber-500 text-zinc-900 font-medium text-sm px-4 py-2.5 rounded-lg transition-colors">
+          className="flex items-center gap-2 bg-amber-400 hover:bg-laranja text-zinc-900 font-medium text-sm px-4 py-2.5 rounded-lg transition-colors">
           <Plus size={16} /> Novo produto
         </button>
       </div>
@@ -138,7 +138,7 @@ export function Produtos() {
         </button>
         <button onClick={() => setActiveFilter(activeFilter === 'active' ? 'all' : 'active')}
           className={`flex flex-col gap-1 p-3 rounded-xl border transition-all text-left ${activeFilter === 'active' ? 'border-amber-400 bg-amber-50' : 'border-zinc-100 bg-white hover:border-zinc-200'}`}>
-          <span className="text-xs font-medium px-2 py-0.5 rounded-full w-fit bg-green-100 text-green-700">Ativos</span>
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full w-fit bg-verde/10 text-verde">Ativos</span>
           <span className="text-2xl font-semibold text-zinc-800">{totalAtivos}</span>
         </button>
         <button onClick={() => setActiveFilter(activeFilter === 'inactive' ? 'all' : 'inactive')}
@@ -154,13 +154,13 @@ export function Produtos() {
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
           <input value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por nome ou categoria..."
-            className="pl-9 pr-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent placeholder:text-zinc-300 w-64" />
+            className="pl-9 pr-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-verde focus:border-transparent placeholder:text-zinc-300 w-64" />
         </div>
 
         {categories.length > 0 && (
           <div className="relative">
             <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
-              className="border border-zinc-200 rounded-lg pl-3 pr-8 py-2 text-sm text-zinc-700 focus:outline-none focus:ring-2 focus:ring-amber-400 appearance-none bg-white">
+              className="border border-zinc-200 rounded-lg pl-3 pr-8 py-2 text-sm text-zinc-700 focus:outline-none focus:ring-2 focus:ring-verde appearance-none bg-white">
               <option value="">Todas as categorias</option>
               {categories.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
@@ -195,7 +195,7 @@ export function Produtos() {
                     </div>
                   </div>
                 </div>
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${product.active ? 'bg-green-100 text-green-700' : 'bg-zinc-100 text-zinc-500'}`}>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${product.active ? 'bg-verde/10 text-verde' : 'bg-zinc-100 text-zinc-500'}`}>
                   {product.active ? 'Ativo' : 'Inativo'}
                 </span>
               </div>

@@ -31,7 +31,7 @@ function diffDays(checkIn?: string, checkOut?: string) {
   return Math.max(1, Math.round((b.getTime() - a.getTime()) / 86400000))
 }
 
-const inputClass = "w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white"
+const inputClass = "w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-verde focus:border-transparent bg-white"
 const labelClass = "text-xs font-medium text-zinc-500 uppercase tracking-wide"
 
 function Modal({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children: React.ReactNode }) {
@@ -154,7 +154,7 @@ export function CheckIn() {
                         <p className="text-xs text-zinc-400 truncate">{room?.type || '—'}</p>
                       </div>
                     </div>
-                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700 shrink-0">
+                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-verde/10 text-verde shrink-0">
                       Confirmada
                     </span>
                   </div>

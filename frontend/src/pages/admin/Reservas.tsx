@@ -15,7 +15,7 @@ import { useAuth } from '../../contexts/AuthContext'
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   PENDING:   { label: 'Pendente',   color: 'bg-yellow-100 text-yellow-700' },
-  CONFIRMED: { label: 'Confirmada', color: 'bg-green-100 text-green-700' },
+  CONFIRMED: { label: 'Confirmada', color: 'bg-verde/10 text-verde' },
   CANCELLED: { label: 'Cancelada',  color: 'bg-red-100 text-red-600' },
   CHECKIN:   { label: 'Check-in',   color: 'bg-blue-100 text-blue-700' },
   CHECKOUT:  { label: 'Check-out',  color: 'bg-zinc-100 text-zinc-600' },
@@ -52,7 +52,7 @@ function Modal({ open, title, onClose, children }: ModalProps) {
   )
 }
 
-const selectClass = "w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white appearance-none"
+const selectClass = "w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-verde focus:border-transparent bg-white appearance-none"
 const labelClass = "text-xs font-medium text-zinc-500 uppercase tracking-wide"
 
 interface BookingFormProps {
@@ -198,7 +198,7 @@ function BookingForm({ onSubmit, loading }: BookingFormProps) {
             <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
           </div>
           <button type="button" onClick={addGuest} disabled={!selectedClientId}
-            className="px-3 py-2 bg-amber-400 hover:bg-amber-500 disabled:opacity-40 text-zinc-900 rounded-lg text-sm font-medium transition-colors">
+            className="px-3 py-2 bg-amber-400 hover:bg-laranja disabled:opacity-40 text-zinc-900 rounded-lg text-sm font-medium transition-colors">
             <Plus size={16} />
           </button>
         </div>
@@ -232,7 +232,7 @@ function BookingForm({ onSubmit, loading }: BookingFormProps) {
       </div>
 
       <button type="submit" disabled={loading}
-        className="mt-1 bg-amber-400 hover:bg-amber-500 disabled:opacity-50 text-zinc-900 font-medium text-sm py-2.5 rounded-lg transition-colors">
+        className="mt-1 bg-amber-400 hover:bg-laranja disabled:opacity-50 text-zinc-900 font-medium text-sm py-2.5 rounded-lg transition-colors">
         {loading ? 'Salvando...' : 'Cadastrar reserva'}
       </button>
     </form>
@@ -293,7 +293,7 @@ export function Reservas() {
           <p className="text-sm text-zinc-400 mt-0.5">Gerencie as reservas do hotel</p>
         </div>
         <button onClick={() => setModalCreate(true)}
-          className="flex items-center gap-2 bg-amber-400 hover:bg-amber-500 text-zinc-900 font-medium text-sm px-4 py-2.5 rounded-lg transition-colors">
+          className="flex items-center gap-2 bg-amber-400 hover:bg-laranja text-zinc-900 font-medium text-sm px-4 py-2.5 rounded-lg transition-colors">
           <Plus size={16} /> Nova reserva
         </button>
       </div>
@@ -314,7 +314,7 @@ export function Reservas() {
         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
         <input value={search} onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar por quarto ou status..."
-          className="w-full pl-9 pr-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent placeholder:text-zinc-300" />
+          className="w-full pl-9 pr-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-verde focus:border-transparent placeholder:text-zinc-300" />
       </div>
 
       {/* Tabela */}

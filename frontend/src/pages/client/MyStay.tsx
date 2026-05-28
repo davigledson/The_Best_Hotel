@@ -20,7 +20,7 @@ const statusClass: Record<string, string> = {
   FOR_DELIVERY: 'bg-blue-100 text-blue-700',
   FOR_PICKUP: 'bg-yellow-100 text-yellow-700',
   AWAITING_CONFIRMATION: 'bg-purple-100 text-purple-700',
-  DELIVERED: 'bg-green-100 text-green-700',
+  DELIVERED: 'bg-verde/10 text-verde',
   CANCELLED: 'bg-red-100 text-red-500',
 }
 
@@ -59,7 +59,7 @@ export function MyStay() {
           <h1 className="text-xl font-semibold text-zinc-800">Minha estadia</h1>
           <p className="text-sm text-zinc-400 mt-0.5">Acompanhe sua estadia e consumos</p>
         </div>
-        <span className="text-xs bg-green-100 text-green-700 font-medium px-3 py-1 rounded-full">Ativa</span>
+        <span className="text-xs bg-verde/10 text-verde font-medium px-3 py-1 rounded-full">Ativa</span>
       </div>
 
       <div className="bg-white rounded-xl border border-zinc-100 px-5 py-4 flex items-center gap-4">

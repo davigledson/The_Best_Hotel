@@ -13,7 +13,7 @@ import { useAuth } from '../../contexts/AuthContext'
 const PAGE_SIZE = 20
 
 const statusLabel: Record<string, string> = { FOR_DELIVERY: 'Para envio', FOR_PICKUP: 'Para retirada', AWAITING_CONFIRMATION: 'Aguardando confirmacao', DELIVERED: 'Entregue', CANCELLED: 'Cancelado' }
-const statusClass: Record<string, string> = { FOR_DELIVERY: 'bg-blue-100 text-blue-700', FOR_PICKUP: 'bg-yellow-100 text-yellow-700', AWAITING_CONFIRMATION: 'bg-purple-100 text-purple-700', DELIVERED: 'bg-green-100 text-green-700', CANCELLED: 'bg-red-100 text-red-500' }
+const statusClass: Record<string, string> = { FOR_DELIVERY: 'bg-blue-100 text-blue-700', FOR_PICKUP: 'bg-yellow-100 text-yellow-700', AWAITING_CONFIRMATION: 'bg-purple-100 text-purple-700', DELIVERED: 'bg-verde/10 text-verde', CANCELLED: 'bg-red-100 text-red-500' }
 
 function getId(obj: any): string {
   const id = obj?.id as any
@@ -34,7 +34,7 @@ function diffDaysFromNow(date?: string) {
   return Math.max(1, Math.round((Date.now() - new Date(date).getTime()) / 86400000))
 }
 
-const inputClass = "w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white"
+const inputClass = "w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-verde focus:border-transparent bg-white"
 const labelClass = "text-xs font-medium text-zinc-500 uppercase tracking-wide"
 
 function Modal({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children: React.ReactNode }) {

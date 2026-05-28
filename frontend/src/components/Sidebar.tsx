@@ -12,8 +12,8 @@ import {
   ShieldCheck,
   ChevronLeft,
   ChevronRight,
-  Hotel,
   DoorOpen,
+  Hotel,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'

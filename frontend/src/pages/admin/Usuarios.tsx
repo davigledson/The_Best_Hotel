@@ -31,7 +31,7 @@ const emptyForm: UserCreatePayload = { email: '', password: '', role: 'CLIENT' }
 const roleConfig: Record<string, { label: string; color: string }> = {
   ADMIN:    { label: 'Admin',       color: 'bg-red-100 text-red-700' },
   EMPLOYEE: { label: 'Funcionario', color: 'bg-yellow-100 text-yellow-700' },
-  CLIENT:   { label: 'Cliente',     color: 'bg-green-100 text-green-700' },
+  CLIENT:   { label: 'Cliente',     color: 'bg-verde/10 text-verde' },
 }
 
 function getId(u: User): string {
@@ -47,7 +47,7 @@ function getInitials(email?: string) {
   return email[0].toUpperCase()
 }
 
-const inputClass = "w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent placeholder:text-zinc-300"
+const inputClass = "w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-verde focus:border-transparent placeholder:text-zinc-300"
 const labelClass = "text-xs font-medium text-zinc-500 uppercase tracking-wide"
 
 interface ModalProps { open: boolean; title: string; onClose: () => void; children: React.ReactNode }
@@ -175,7 +175,7 @@ function UserForm({ initial, onSubmit, loading, submitLabel }: FormProps) {
       )}
 
       <button type="submit" disabled={loading}
-        className="mt-1 bg-amber-400 hover:bg-amber-500 disabled:opacity-50 text-zinc-900 font-medium text-sm py-2.5 rounded-lg transition-colors">
+        className="mt-1 bg-amber-400 hover:bg-laranja disabled:opacity-50 text-zinc-900 font-medium text-sm py-2.5 rounded-lg transition-colors">
         {loading ? 'Salvando...' : submitLabel}
       </button>
     </form>
@@ -227,7 +227,7 @@ export function Usuarios() {
           <p className="text-sm text-zinc-400 mt-0.5">Gerencie os acessos ao sistema</p>
         </div>
         <button onClick={() => setModalCreate(true)}
-          className="flex items-center gap-2 bg-amber-400 hover:bg-amber-500 text-zinc-900 font-medium text-sm px-4 py-2.5 rounded-lg transition-colors">
+          className="flex items-center gap-2 bg-amber-400 hover:bg-laranja text-zinc-900 font-medium text-sm px-4 py-2.5 rounded-lg transition-colors">
           <Plus size={16} /> Novo usuario
         </button>
       </div>
@@ -248,7 +248,7 @@ export function Usuarios() {
         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
         <input value={search} onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar por email ou perfil..."
-          className="w-full pl-9 pr-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent placeholder:text-zinc-300" />
+          className="w-full pl-9 pr-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-verde focus:border-transparent placeholder:text-zinc-300" />
       </div>
 
       {/* Cards de usuarios */}

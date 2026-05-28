@@ -24,7 +24,7 @@ const statusClass: Record<string, string> = {
   FOR_DELIVERY: 'bg-blue-100 text-blue-700',
   FOR_PICKUP: 'bg-yellow-100 text-yellow-700',
   AWAITING_CONFIRMATION: 'bg-purple-100 text-purple-700',
-  DELIVERED: 'bg-green-100 text-green-700',
+  DELIVERED: 'bg-verde/10 text-verde',
   CANCELLED: 'bg-red-100 text-red-500',
 }
 
@@ -35,7 +35,7 @@ interface FormProps { initial: Stay; onSubmit: (data: any) => void; loading: boo
 function CheckInForm({ initial, onSubmit, loading, submitLabel }: FormProps) {
   const [bookingId, setBookingId] = useState((initial.bookingId as string) ?? '')
   const handle = (e: React.FormEvent) => { e.preventDefault(); onSubmit({ bookingId }) }
-  return (<form onSubmit={handle} className="flex flex-col gap-4"><div className="flex flex-col gap-1"><label className="text-xs">Booking ID</label><input value={bookingId} onChange={(e) => setBookingId(e.target.value)} required className="border px-3 py-2 rounded-lg"/></div><button type="submit" disabled={loading} className="mt-2 bg-amber-400 hover:bg-amber-500 disabled:opacity-50 text-zinc-900 font-medium text-sm py-2.5 rounded-lg">{submitLabel}</button></form>)
+  return (<form onSubmit={handle} className="flex flex-col gap-4"><div className="flex flex-col gap-1"><label className="text-xs">Booking ID</label><input value={bookingId} onChange={(e) => setBookingId(e.target.value)} required className="border px-3 py-2 rounded-lg"/></div><button type="submit" disabled={loading} className="mt-2 bg-amber-400 hover:bg-laranja disabled:opacity-50 text-zinc-900 font-medium text-sm py-2.5 rounded-lg">{submitLabel}</button></form>)
 }
 
 export function Estadias() {
@@ -69,7 +69,7 @@ export function Estadias() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between"><div><h1 className="text-xl font-semibold text-zinc-800">Estadias</h1><p className="text-sm text-zinc-400 mt-0.5">Gerencie estadias</p></div><button onClick={() => setModalCheckIn(true)} className="flex items-center gap-2 bg-amber-400 hover:bg-amber-500 text-zinc-900 font-medium text-sm px-4 py-2.5 rounded-lg"><Plus size={16}/> Check-in</button></div>
+      <div className="flex items-center justify-between"><div><h1 className="text-xl font-semibold text-zinc-800">Estadias</h1><p className="text-sm text-zinc-400 mt-0.5">Gerencie estadias</p></div><button onClick={() => setModalCheckIn(true)} className="flex items-center gap-2 bg-amber-400 hover:bg-laranja text-zinc-900 font-medium text-sm px-4 py-2.5 rounded-lg"><Plus size={16}/> Check-in</button></div>
 
       <div className="relative max-w-sm"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por status ou id..." className="w-full pl-9 pr-3 py-2 text-sm border rounded-lg"/></div>
 
@@ -133,7 +133,7 @@ export function Estadias() {
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Produto</label>
                   <div className="relative">
-                    <select value={consumptionForm.productId} onChange={(e) => setConsumptionForm({ ...consumptionForm, productId: e.target.value })} required className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-amber-400 appearance-none">
+                    <select value={consumptionForm.productId} onChange={(e) => setConsumptionForm({ ...consumptionForm, productId: e.target.value })} required className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-verde appearance-none">
                       <option value="">Selecione</option>
                       {activeProducts.map((p) => (<option key={(p.id as any)?.$oid ?? p.id} value={(p.id as any)?.$oid ?? p.id}>{p.name} — R$ {p.price?.toFixed(2)}</option>))}
                     </select>
@@ -142,12 +142,12 @@ export function Estadias() {
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Quantidade</label>
-                  <input type="number" min={1} value={consumptionForm.quantity} onChange={(e) => setConsumptionForm({ ...consumptionForm, quantity: e.target.value })} required className="border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                  <input type="number" min={1} value={consumptionForm.quantity} onChange={(e) => setConsumptionForm({ ...consumptionForm, quantity: e.target.value })} required className="border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-verde" />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Tipo de entrega</label>
                   <div className="relative">
-                    <select value={consumptionForm.deliveryStatus} onChange={(e) => setConsumptionForm({ ...consumptionForm, deliveryStatus: e.target.value as DeliveryStatus })} className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-amber-400 appearance-none">
+                    <select value={consumptionForm.deliveryStatus} onChange={(e) => setConsumptionForm({ ...consumptionForm, deliveryStatus: e.target.value as DeliveryStatus })} className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-verde appearance-none">
                       <option value="FOR_DELIVERY">Para envio</option>
                       <option value="FOR_PICKUP">Para retirada</option>
                     </select>
@@ -156,10 +156,10 @@ export function Estadias() {
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Observacao</label>
-                  <input type="text" value={consumptionForm.notes} onChange={(e) => setConsumptionForm({ ...consumptionForm, notes: e.target.value })} placeholder="Opcional" className="border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-amber-400 placeholder:text-zinc-300" />
+                  <input type="text" value={consumptionForm.notes} onChange={(e) => setConsumptionForm({ ...consumptionForm, notes: e.target.value })} placeholder="Opcional" className="border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-verde placeholder:text-zinc-300" />
                 </div>
                 {consumptionMutation.isError && (<div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2.5 text-center">Erro ao registrar consumo</div>)}
-                <button type="submit" disabled={consumptionMutation.isPending} className="bg-amber-400 hover:bg-amber-500 disabled:opacity-50 text-zinc-900 font-medium text-sm py-2.5 rounded-lg transition-colors">{consumptionMutation.isPending ? 'Registrando...' : 'Registrar consumo'}</button>
+                <button type="submit" disabled={consumptionMutation.isPending} className="bg-amber-400 hover:bg-laranja disabled:opacity-50 text-zinc-900 font-medium text-sm py-2.5 rounded-lg transition-colors">{consumptionMutation.isPending ? 'Registrando...' : 'Registrar consumo'}</button>
               </form>
             </div>
           </div>
