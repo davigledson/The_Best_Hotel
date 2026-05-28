@@ -13,10 +13,10 @@ import {
   ChevronLeft,
   ChevronRight,
   DoorOpen,
-  Hotel,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import miniLogo from '../assets/mini-logo.svg'
 
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, to: '/admin/' },
@@ -46,7 +46,7 @@ export function Sidebar() {
     >
       {/* Logo */}
       <div className={`flex items-center gap-3 px-4 py-5 border-b border-zinc-800 ${collapsed ? 'justify-center' : ''}`}>
-        <Hotel className="text-amber-400 shrink-0" size={24} />
+          <img src={miniLogo} alt="The Best Hotel" className="w-6 h-6 shrink-0" />
         {!collapsed && (
           <span className="font-semibold text-sm tracking-wide text-white leading-tight">
             The Best Hotel

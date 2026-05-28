@@ -29,7 +29,7 @@ const statusClass: Record<string, string> = {
 }
 
 interface ModalProps { open: boolean; title: string; onClose: () => void; children: React.ReactNode }
-function Modal({ open, title, onClose, children }: ModalProps) { if (!open) return null; return (<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"><div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4"><div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100"><h2 className="text-base font-semibold text-zinc-800">{title}</h2><button onClick={onClose} className="text-zinc-400 hover:text-zinc-700 transition-colors"><X size={20} /></button></div><div className="px-6 py-4">{children}</div></div></div>) }
+function Modal({ open, title, onClose, children }: ModalProps) { if (!open) return null; return (<div className="fixed inset-0 z-50 flex items-start justify-center pt-10 bg-black/40 overflow-y-auto"><div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 my-auto"><div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 sticky top-0 bg-white z-10"><h2 className="text-base font-semibold text-zinc-800">{title}</h2><button onClick={onClose} className="text-zinc-400 hover:text-zinc-700 transition-colors"><X size={20} /></button></div><div className="px-6 py-4 max-h-[75vh] overflow-y-auto">{children}</div></div></div>) }
 
 interface FormProps { initial: Stay; onSubmit: (data: any) => void; loading: boolean; submitLabel: string }
 function CheckInForm({ initial, onSubmit, loading, submitLabel }: FormProps) {
