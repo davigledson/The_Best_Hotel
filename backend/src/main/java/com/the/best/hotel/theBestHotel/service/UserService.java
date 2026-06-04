@@ -41,7 +41,7 @@ public class UserService {
     @Transactional
     public User create(UserCreateRequest req) {
         if (userRepository.existsByEmail(req.getEmail())) {
-            throw new RuntimeException("Email already in use");
+            throw new RuntimeException("Email já está em uso");
         }
 
         User user = new User();

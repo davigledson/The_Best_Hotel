@@ -136,6 +136,7 @@ export interface Booking {
   id?: ObjectId;
   roomId?: ObjectId;
   guests?: Guest[];
+  numberOfGuests?: number;
   checkInDate?: string;
   checkOutDate?: string;
   dailyRate?: number;

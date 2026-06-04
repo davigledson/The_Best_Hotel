@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Pencil, Trash2, Plus, X, Search, ShoppingBasket, ChevronDown, Tag, DollarSign } from 'lucide-react'
+import { Pencil, Trash2, Plus, X, ShoppingBasket, Tag, DollarSign, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   useFindAll2,
   useCreate2,
@@ -9,6 +9,9 @@ import {
   getFindAll2QueryKey,
 } from '../../services/product-controller/product-controller'
 import type { Product } from '../../services/openAPIDefinition.schemas'
+import { FilterButton, FilterPanel } from '../../components/FilterPanel'
+
+const PAGE_SIZE = 20
 
 const emptyForm: Product = { name: '', category: '', price: 0, active: true }
 
@@ -59,7 +62,7 @@ function ProductForm({ initial, onSubmit, loading, submitLabel }: FormProps) {
 
       <div className="flex flex-col gap-1.5">
         <label className={labelClass}>Categoria</label>
-        <input value={form.category ?? ''} onChange={set('category')} placeholder="Ex: Bebidas, Refeicoes" className={inputClass} />
+        <input value={form.category ?? ''} onChange={set('category')} required placeholder="Ex: Bebidas, Refeicoes" className={inputClass} />
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -87,29 +90,45 @@ function ProductForm({ initial, onSubmit, loading, submitLabel }: FormProps) {
 
 export function Produtos() {
   const queryClient = useQueryClient()
-  const [search, setSearch] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('')
+  const [filters, setFilters] = useState<Record<string, string>>({})
+  const [filterOpen, setFilterOpen] = useState(false)
   const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'inactive'>('all')
+  const [page, setPage] = useState(0)
   const [modalCreate, setModalCreate] = useState(false)
   const [modalEdit, setModalEdit] = useState<Product | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Product | null>(null)
+  const [error, setError] = useState('')
 
   const { data: products = [], isLoading } = useFindAll2()
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getFindAll2QueryKey() })
 
-  const createMutation = useCreate2({ mutation: { onSuccess: () => { invalidate(); setModalCreate(false) } } })
-  const updateMutation = useUpdate2({ mutation: { onSuccess: () => { invalidate(); setModalEdit(null) } } })
-  const deleteMutation = useDelete2({ mutation: { onSuccess: () => { invalidate(); setConfirmDelete(null) } } })
+  const createMutation = useCreate2({ mutation: { onSuccess: () => { invalidate(); setModalCreate(false); setError('') }, onError: (err) => setError((err as any)?.response?.data?.message || 'Erro ao criar produto') } })
+  const updateMutation = useUpdate2({ mutation: { onSuccess: () => { invalidate(); setModalEdit(null); setError('') }, onError: (err) => setError((err as any)?.response?.data?.message || 'Erro ao atualizar produto') } })
+  const deleteMutation = useDelete2({ mutation: { onSuccess: () => { invalidate(); setConfirmDelete(null); setError('') }, onError: (err) => setError((err as any)?.response?.data?.message || 'Erro ao excluir produto') } })
 
-  const categories = [...new Set(products.map((p) => p.category).filter(Boolean))] as string[]
+  const categoryOptions = useMemo(() => {
+    const set = new Set(products.map((p) => p.category).filter(Boolean))
+    return Array.from(set).map((c) => ({ value: c, label: c })) as { value: string; label: string }[]
+  }, [products])
 
   const filtered = products.filter((p) => {
-    const q = search.toLowerCase()
-    const matchSearch = p.name?.toLowerCase().includes(q) || p.category?.toLowerCase().includes(q)
-    const matchCategory = categoryFilter ? p.category === categoryFilter : true
     const matchActive = activeFilter === 'all' ? true : activeFilter === 'active' ? p.active : !p.active
-    return matchSearch && matchCategory && matchActive
+    if (!matchActive) return false
+    if (filters.name && !(p.name ?? '').toLowerCase().includes(filters.name.toLowerCase())) return false
+    if (filters.category && p.category !== filters.category) return false
+    if (filters.priceMin) {
+      const min = parseFloat(filters.priceMin)
+      if (!isNaN(min) && (p.price ?? 0) < min) return false
+    }
+    if (filters.priceMax) {
+      const max = parseFloat(filters.priceMax)
+      if (!isNaN(max) && (p.price ?? 0) > max) return false
+    }
+    return true
   })
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
   const totalAtivos = products.filter((p) => p.active).length
   const totalInativos = products.filter((p) => !p.active).length
@@ -124,14 +143,14 @@ export function Produtos() {
           <p className="text-sm text-zinc-400 mt-0.5">Gerencie os produtos e consumiveis do hotel</p>
         </div>
         <button onClick={() => setModalCreate(true)}
-          className="flex items-center gap-2 bg-amber-400 hover:bg-laranja text-zinc-900 font-medium text-sm px-4 py-2.5 rounded-lg transition-colors">
-          <Plus size={16} /> Novo produto
+          className="flex items-center justify-center bg-amber-400 hover:bg-laranja text-zinc-900 font-medium rounded-lg transition-colors w-10 h-10">
+          <Plus size={18} />
         </button>
       </div>
 
       {/* Cards de resumo */}
       <div className="grid grid-cols-3 gap-3">
-        <button onClick={() => setActiveFilter('all')}
+        <button onClick={() => { setActiveFilter('all'); setPage(0) }}
           className={`flex flex-col gap-1 p-3 rounded-xl border transition-all text-left ${activeFilter === 'all' ? 'border-amber-400 bg-amber-50' : 'border-zinc-100 bg-white hover:border-zinc-200'}`}>
           <span className="text-xs font-medium px-2 py-0.5 rounded-full w-fit bg-zinc-100 text-zinc-600">Total</span>
           <span className="text-2xl font-semibold text-zinc-800">{products.length}</span>
@@ -149,25 +168,26 @@ export function Produtos() {
       </div>
 
       {/* Filtros */}
-      <div className="flex gap-3 flex-wrap">
-        <div className="relative">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nome ou categoria..."
-            className="pl-9 pr-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-verde focus:border-transparent placeholder:text-zinc-300 w-64" />
-        </div>
-
-        {categories.length > 0 && (
-          <div className="relative">
-            <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
-              className="border border-zinc-200 rounded-lg pl-3 pr-8 py-2 text-sm text-zinc-700 focus:outline-none focus:ring-2 focus:ring-verde appearance-none bg-white">
-              <option value="">Todas as categorias</option>
-              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
-          </div>
-        )}
+      <div className="flex items-center gap-3">
+        <FilterButton
+          activeCount={Object.values(filters).filter(Boolean).length}
+          onClick={() => setFilterOpen(!filterOpen)}
+        />
       </div>
+
+      <div className="flex gap-6">
+        <FilterPanel
+          open={filterOpen}
+          config={[
+            { key: 'name', label: 'Nome', type: 'text' },
+            { key: 'category', label: 'Categoria', type: 'select', options: categoryOptions },
+            { key: 'priceMin', label: 'Preço mín.', type: 'text', placeholder: 'R$ 0,00' },
+            { key: 'priceMax', label: 'Preço máx.', type: 'text', placeholder: 'R$ 999,99' },
+          ]}
+          filters={filters}
+          onChange={(f) => { setFilters(f); setPage(0) }}
+        />
+        <div className="flex-1 min-w-0">
 
       {/* Lista */}
       {isLoading ? (
@@ -179,7 +199,7 @@ export function Produtos() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((product) => (
+          {paginated.map((product) => (
             <div key={getId(product)} className={`bg-white rounded-xl border p-4 flex flex-col gap-3 transition-opacity ${product.active ? 'border-zinc-100' : 'border-zinc-100 opacity-60'}`}>
 
               <div className="flex items-start justify-between">
@@ -220,14 +240,36 @@ export function Produtos() {
         </div>
       )}
 
+        </div>
+      </div>
+
+      {/* Paginacao */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-2">
+          <button onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0}
+            className="p-2 rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 transition-colors">
+            <ChevronLeft size={16} />
+          </button>
+          <span className="text-sm text-zinc-500 px-3">
+            {page + 1} de {totalPages}
+          </span>
+          <button onClick={() => setPage(Math.min(totalPages - 1, page + 1))} disabled={page >= totalPages - 1}
+            className="p-2 rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 transition-colors">
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      )}
+
       {/* Modal criar */}
       <Modal open={modalCreate} title="Novo produto" onClose={() => setModalCreate(false)}>
+        {error && <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-lg mb-3">{error}</div>}
         <ProductForm initial={emptyForm} submitLabel="Cadastrar produto" loading={createMutation.isPending}
           onSubmit={(data) => createMutation.mutate({ data })} />
       </Modal>
 
       {/* Modal editar */}
       <Modal open={!!modalEdit} title="Editar produto" onClose={() => setModalEdit(null)}>
+        {error && <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-lg mb-3">{error}</div>}
         {modalEdit && (
           <ProductForm initial={modalEdit} submitLabel="Salvar alteracoes" loading={updateMutation.isPending}
             onSubmit={(data) => updateMutation.mutate({ id: getId(modalEdit), data })} />
@@ -236,6 +278,7 @@ export function Produtos() {
 
       {/* Modal confirmar exclusao */}
       <Modal open={!!confirmDelete} title="Excluir produto" onClose={() => setConfirmDelete(null)}>
+        {error && <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-lg mb-3">{error}</div>}
         {confirmDelete && (
           <div className="flex flex-col gap-4">
             <p className="text-sm text-zinc-600">

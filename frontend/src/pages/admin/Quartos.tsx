@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Pencil, Trash2, Plus, X, Search, BedDouble, ChevronDown, Users, DollarSign } from 'lucide-react'
+import { Pencil, Trash2, Plus, X, BedDouble, ChevronDown, Users, DollarSign, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   useFindAll1,
   useCreate1,
@@ -9,6 +9,9 @@ import {
   getFindAll1QueryKey,
 } from '../../services/room-controller/room-controller'
 import type { Room, RoomStatus } from '../../services/openAPIDefinition.schemas'
+import { FilterButton, FilterPanel } from '../../components/FilterPanel'
+
+const PAGE_SIZE = 20
 
 const emptyForm: Room = { number: '', type: '', description: '', capacity: 1, dailyRate: 0, status: 'AVAILABLE' }
 
@@ -65,7 +68,7 @@ function RoomForm({ initial, onSubmit, loading, submitLabel }: FormProps) {
         </div>
         <div className="flex-1 flex flex-col gap-1.5">
           <label className={labelClass}>Tipo</label>
-          <input value={form.type ?? ''} onChange={set('type')} placeholder="Ex: Suite, Standard" className={inputClass} />
+          <input value={form.type ?? ''} onChange={set('type')} required placeholder="Ex: Suite, Standard" className={inputClass} />
         </div>
       </div>
 
@@ -107,25 +110,41 @@ function RoomForm({ initial, onSubmit, loading, submitLabel }: FormProps) {
 
 export function Quartos() {
   const queryClient = useQueryClient()
-  const [search, setSearch] = useState('')
+  const [filters, setFilters] = useState<Record<string, string>>({})
+  const [filterOpen, setFilterOpen] = useState(false)
   const [statusFilter, setStatusFilter] = useState<RoomStatus | ''>('')
+  const [page, setPage] = useState(0)
   const [modalCreate, setModalCreate] = useState(false)
   const [modalEdit, setModalEdit] = useState<Room | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Room | null>(null)
+  const [error, setError] = useState('')
 
   const { data: rooms = [], isLoading } = useFindAll1()
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getFindAll1QueryKey() })
 
-  const createMutation = useCreate1({ mutation: { onSuccess: () => { invalidate(); setModalCreate(false) } } })
-  const updateMutation = useUpdate1({ mutation: { onSuccess: () => { invalidate(); setModalEdit(null) } } })
-  const deleteMutation = useDelete1({ mutation: { onSuccess: () => { invalidate(); setConfirmDelete(null) } } })
+  const createMutation = useCreate1({ mutation: { onSuccess: () => { invalidate(); setModalCreate(false); setError('') }, onError: (err) => setError((err as any)?.response?.data?.message || 'Erro ao criar quarto') } })
+  const updateMutation = useUpdate1({ mutation: { onSuccess: () => { invalidate(); setModalEdit(null); setError('') }, onError: (err) => setError((err as any)?.response?.data?.message || 'Erro ao atualizar quarto') } })
+  const deleteMutation = useDelete1({ mutation: { onSuccess: () => { invalidate(); setConfirmDelete(null); setError('') }, onError: (err) => setError((err as any)?.response?.data?.message || 'Erro ao excluir quarto') } })
+
+  const typeOptions = useMemo(() => {
+    const set = new Set(rooms.map((r) => r.type).filter(Boolean))
+    return Array.from(set).map((t) => ({ value: t, label: t })) as { value: string; label: string }[]
+  }, [rooms])
 
   const filtered = rooms.filter((r) => {
-    const q = search.toLowerCase()
-    const matchSearch = r.number?.toLowerCase().includes(q) || r.type?.toLowerCase().includes(q) || r.description?.toLowerCase().includes(q)
     const matchStatus = statusFilter ? r.status === statusFilter : true
-    return matchSearch && matchStatus
+    if (!matchStatus) return false
+    if (filters.number && !(r.number ?? '').toLowerCase().includes(filters.number.toLowerCase())) return false
+    if (filters.type && r.type !== filters.type) return false
+    if (filters.minCapacity) {
+      const min = parseInt(filters.minCapacity)
+      if (!isNaN(min) && (r.capacity ?? 0) < min) return false
+    }
+    return true
   })
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
   const counts = Object.keys(statusConfig).reduce((acc, key) => {
     acc[key] = rooms.filter((r) => r.status === key).length
@@ -142,15 +161,15 @@ export function Quartos() {
           <p className="text-sm text-zinc-400 mt-0.5">Gerencie os quartos do hotel</p>
         </div>
         <button onClick={() => setModalCreate(true)}
-          className="flex items-center gap-2 bg-amber-400 hover:bg-laranja text-zinc-900 font-medium text-sm px-4 py-2.5 rounded-lg transition-colors">
-          <Plus size={16} /> Novo quarto
+          className="flex items-center justify-center bg-amber-400 hover:bg-laranja text-zinc-900 font-medium rounded-lg transition-colors w-10 h-10">
+          <Plus size={18} />
         </button>
       </div>
 
       {/* Status cards */}
       <div className="grid grid-cols-3 gap-3">
         {Object.entries(statusConfig).map(([key, { label, color }]) => (
-          <button key={key} onClick={() => setStatusFilter(statusFilter === key ? '' : key as RoomStatus)}
+          <button key={key} onClick={() => { setStatusFilter(statusFilter === key ? '' : key as RoomStatus); setPage(0) }}
             className={`flex flex-col gap-1 p-3 rounded-xl border transition-all text-left ${statusFilter === key ? 'border-amber-400 bg-amber-50' : 'border-zinc-100 bg-white hover:border-zinc-200'}`}>
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full w-fit ${color}`}>{label}</span>
             <span className="text-2xl font-semibold text-zinc-800">{counts[key] ?? 0}</span>
@@ -158,13 +177,26 @@ export function Quartos() {
         ))}
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-        <input value={search} onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por numero ou tipo..."
-          className="w-full pl-9 pr-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-verde focus:border-transparent placeholder:text-zinc-300" />
+      {/* Filtros */}
+      <div className="flex items-center gap-3">
+        <FilterButton
+          activeCount={Object.values(filters).filter(Boolean).length}
+          onClick={() => setFilterOpen(!filterOpen)}
+        />
       </div>
+
+      <div className="flex gap-6">
+        <FilterPanel
+          open={filterOpen}
+          config={[
+            { key: 'number', label: 'Número', type: 'text' },
+            { key: 'type', label: 'Tipo', type: 'select', options: typeOptions },
+            { key: 'minCapacity', label: 'Capacidade mín.', type: 'text', placeholder: 'Ex: 2' },
+          ]}
+          filters={filters}
+          onChange={(f) => { setFilters(f); setPage(0) }}
+        />
+        <div className="flex-1 min-w-0">
 
       {/* Cards de quartos */}
       {isLoading ? (
@@ -176,7 +208,7 @@ export function Quartos() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((room) => {
+          {paginated.map((room) => {
             const status = statusConfig[room.status ?? ''] ?? { label: room.status, color: 'bg-zinc-100 text-zinc-500' }
             return (
               <div key={getId(room)} className="bg-white rounded-xl border border-zinc-100 p-4 flex flex-col gap-3">
@@ -231,14 +263,36 @@ export function Quartos() {
         </div>
       )}
 
+        </div>
+      </div>
+
+      {/* Paginacao */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-2">
+          <button onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0}
+            className="p-2 rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 transition-colors">
+            <ChevronLeft size={16} />
+          </button>
+          <span className="text-sm text-zinc-500 px-3">
+            {page + 1} de {totalPages}
+          </span>
+          <button onClick={() => setPage(Math.min(totalPages - 1, page + 1))} disabled={page >= totalPages - 1}
+            className="p-2 rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 transition-colors">
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      )}
+
       {/* Modal criar */}
       <Modal open={modalCreate} title="Novo quarto" onClose={() => setModalCreate(false)}>
+        {error && <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-lg mb-3">{error}</div>}
         <RoomForm initial={emptyForm} submitLabel="Cadastrar quarto" loading={createMutation.isPending}
           onSubmit={(data) => createMutation.mutate({ data })} />
       </Modal>
 
       {/* Modal editar */}
       <Modal open={!!modalEdit} title="Editar quarto" onClose={() => setModalEdit(null)}>
+        {error && <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-lg mb-3">{error}</div>}
         {modalEdit && (
           <RoomForm initial={modalEdit} submitLabel="Salvar alteracoes" loading={updateMutation.isPending}
             onSubmit={(data) => updateMutation.mutate({ id: getId(modalEdit), data })} />
@@ -247,6 +301,7 @@ export function Quartos() {
 
       {/* Modal confirmar exclusao */}
       <Modal open={!!confirmDelete} title="Excluir quarto" onClose={() => setConfirmDelete(null)}>
+        {error && <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-lg mb-3">{error}</div>}
         {confirmDelete && (
           <div className="flex flex-col gap-4">
             <p className="text-sm text-zinc-600">

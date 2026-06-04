@@ -28,8 +28,11 @@ public class RoomService {
     }
 
     public Room create(Room room) {
+        if (room.getType() == null || room.getType().isBlank()) {
+            throw new RuntimeException("Tipo do quarto é obrigatório");
+        }
         if (roomRepository.existsByNumber(room.getNumber())) {
-            throw new RuntimeException("Room number already exists");
+            throw new RuntimeException("Número do quarto já existe");
         }
         room.setStatus(Room.Status.AVAILABLE);
         return roomRepository.save(room);
@@ -37,6 +40,14 @@ public class RoomService {
 
     public Room update(ObjectId id, Room updated) {
         Room existing = findById(id);
+        if (updated.getType() == null || updated.getType().isBlank()) {
+            throw new RuntimeException("Tipo do quarto é obrigatório");
+        }
+        if (updated.getNumber() != null && !updated.getNumber().equals(existing.getNumber())
+                && roomRepository.existsByNumber(updated.getNumber())) {
+            throw new RuntimeException("Número do quarto já existe");
+        }
+        existing.setNumber(updated.getNumber());
         existing.setType(updated.getType());
         existing.setDescription(updated.getDescription());
         existing.setCapacity(updated.getCapacity());

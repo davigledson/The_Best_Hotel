@@ -65,6 +65,10 @@ public class BookingService {
         booking.setAdvancePayment(room.getDailyRate());
         booking.setCreatedAt(LocalDateTime.now());
 
+        if (booking.getNumberOfGuests() < 1) {
+            booking.setNumberOfGuests(1);
+        }
+
         if (role == User.Role.CLIENT) {
             if (clientRefId != null) {
                 Booking.Guest holder = new Booking.Guest();
@@ -76,6 +80,9 @@ public class BookingService {
             room.setStatus(Room.Status.RESERVED);
             roomRepository.save(room);
         } else {
+            if (booking.getGuests() == null || booking.getGuests().isEmpty()) {
+                throw new RuntimeException("É necessário informar o cliente titular da reserva");
+            }
             booking.setStatus(Booking.Status.CONFIRMED);
             room.setStatus(Room.Status.OCCUPIED);
             roomRepository.save(room);

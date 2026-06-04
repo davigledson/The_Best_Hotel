@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQueryClient, useMutation } from '@tanstack/react-query'
-import { Pencil, Trash2, Plus, X, Search, ShieldCheck, ChevronDown, Eye, EyeOff } from 'lucide-react'
+import { Pencil, Trash2, Plus, X, ShieldCheck, ChevronDown, Eye, EyeOff, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   useFindAll,
   useUpdate,
@@ -11,6 +11,9 @@ import { getFindAll3QueryKey } from '../../services/employee-controller/employee
 import { getFindAll4QueryKey } from '../../services/client-controller/client-controller'
 import { customInstance } from '../../lib/axios'
 import type { User, UserRole } from '../../services/openAPIDefinition.schemas'
+import { FilterButton, FilterPanel } from '../../components/FilterPanel'
+
+const PAGE_SIZE = 20
 
 interface UserCreatePayload {
   email: string
@@ -184,11 +187,14 @@ function UserForm({ initial, onSubmit, loading, submitLabel }: FormProps) {
 
 export function Usuarios() {
   const queryClient = useQueryClient()
-  const [search, setSearch] = useState('')
+  const [filters, setFilters] = useState<Record<string, string>>({})
+  const [filterOpen, setFilterOpen] = useState(false)
   const [roleFilter, setRoleFilter] = useState<UserRole | ''>('')
+  const [page, setPage] = useState(0)
   const [modalCreate, setModalCreate] = useState(false)
   const [modalEdit, setModalEdit] = useState<User | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<User | null>(null)
+  const [error, setError] = useState('')
 
   const { data: users = [], isLoading } = useFindAll()
   const invalidate = () => {
@@ -199,18 +205,29 @@ export function Usuarios() {
 
   const createMutation = useMutation({
     mutationFn: (data: UserCreatePayload) => customInstance<User>({ url: '/users', method: 'POST', data }),
-    onSuccess: () => { invalidate(); setModalCreate(false) },
+    onSuccess: () => { invalidate(); setModalCreate(false); setError('') },
+    onError: (err) => setError((err as any)?.response?.data?.message || 'Erro ao criar usuário'),
   })
 
-  const updateMutation = useUpdate({ mutation: { onSuccess: () => { invalidate(); setModalEdit(null) } } })
-  const deleteMutation = useDelete({ mutation: { onSuccess: () => { invalidate(); setConfirmDelete(null) } } })
+  const updateMutation = useUpdate({ mutation: {
+    onSuccess: () => { invalidate(); setModalEdit(null); setError('') },
+    onError: (err) => setError((err as any)?.response?.data?.message || 'Erro ao atualizar usuário'),
+  } })
+  const deleteMutation = useDelete({ mutation: {
+    onSuccess: () => { invalidate(); setConfirmDelete(null); setError('') },
+    onError: (err) => setError((err as any)?.response?.data?.message || 'Erro ao excluir usuário'),
+  } })
 
   const filtered = users.filter((u) => {
-    const q = search.toLowerCase()
-    const matchSearch = u.email?.toLowerCase().includes(q) || (u.role ?? '').toLowerCase().includes(q)
     const matchRole = roleFilter ? u.role === roleFilter : true
-    return matchSearch && matchRole
+    if (!matchRole) return false
+    if (filters.email && !(u.email ?? '').toLowerCase().includes(filters.email.toLowerCase())) return false
+    if (filters.role && u.role !== filters.role) return false
+    return true
   })
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
   const counts = Object.keys(roleConfig).reduce((acc, key) => {
     acc[key] = users.filter((u) => u.role === key).length
@@ -235,7 +252,7 @@ export function Usuarios() {
       {/* Cards por role */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {Object.entries(roleConfig).map(([key, { label, color }]) => (
-          <button key={key} onClick={() => setRoleFilter(roleFilter === key ? '' : key as UserRole)}
+          <button key={key} onClick={() => { setRoleFilter(roleFilter === key ? '' : key as UserRole); setPage(0) }}
             className={`flex flex-col gap-1 p-3 rounded-xl border transition-all text-left ${roleFilter === key ? 'border-amber-400 bg-amber-50' : 'border-zinc-100 bg-white hover:border-zinc-200'}`}>
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full w-fit ${color}`}>{label}</span>
             <span className="text-2xl font-semibold text-zinc-800">{counts[key] ?? 0}</span>
@@ -243,13 +260,29 @@ export function Usuarios() {
         ))}
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-        <input value={search} onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por email ou perfil..."
-          className="w-full pl-9 pr-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-verde focus:border-transparent placeholder:text-zinc-300" />
+      {/* Filtros */}
+      <div className="flex items-center gap-3">
+        <FilterButton
+          activeCount={Object.values(filters).filter(Boolean).length}
+          onClick={() => setFilterOpen(!filterOpen)}
+        />
       </div>
+
+      <div className="flex gap-6">
+        <FilterPanel
+          open={filterOpen}
+          config={[
+            { key: 'email', label: 'E-mail', type: 'text' },
+            { key: 'role', label: 'Perfil', type: 'select', options: [
+              { value: 'ADMIN', label: 'Admin' },
+              { value: 'EMPLOYEE', label: 'Funcionário' },
+              { value: 'CLIENT', label: 'Cliente' },
+            ]},
+          ]}
+          filters={filters}
+          onChange={(f) => { setFilters(f); setPage(0) }}
+        />
+        <div className="flex-1 min-w-0">
 
       {/* Cards de usuarios */}
       {isLoading ? (
@@ -261,7 +294,7 @@ export function Usuarios() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((user) => {
+          {paginated.map((user) => {
             const role = roleConfig[user.role ?? ''] ?? { label: user.role, color: 'bg-zinc-100 text-zinc-500' }
             return (
               <div key={getId(user)} className="bg-white rounded-xl border border-zinc-100 p-4 flex flex-col gap-3">
@@ -293,14 +326,36 @@ export function Usuarios() {
         </div>
       )}
 
+        </div>
+      </div>
+
+      {/* Paginacao */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-2">
+          <button onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0}
+            className="p-2 rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 transition-colors">
+            <ChevronLeft size={16} />
+          </button>
+          <span className="text-sm text-zinc-500 px-3">
+            {page + 1} de {totalPages}
+          </span>
+          <button onClick={() => setPage(Math.min(totalPages - 1, page + 1))} disabled={page >= totalPages - 1}
+            className="p-2 rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 transition-colors">
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      )}
+
       {/* Modal criar */}
       <Modal open={modalCreate} title="Novo usuario" onClose={() => setModalCreate(false)}>
+        {error && <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-lg mb-3">{error}</div>}
         <UserForm initial={emptyForm} submitLabel="Cadastrar usuario" loading={createMutation.isPending}
           onSubmit={(data) => createMutation.mutate(data)} />
       </Modal>
 
-      {/* Modal editar — edit only changes email/password/role, role-specific data goes in Funcionarios/Clientes */}
+      {/* Modal editar */}
       <Modal open={!!modalEdit} title="Editar usuario" onClose={() => setModalEdit(null)}>
+        {error && <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-lg mb-3">{error}</div>}
         {modalEdit && (
           <UserForm
             key={getId(modalEdit)}
@@ -321,6 +376,7 @@ export function Usuarios() {
 
       {/* Modal confirmar exclusao */}
       <Modal open={!!confirmDelete} title="Excluir usuario" onClose={() => setConfirmDelete(null)}>
+        {error && <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-lg mb-3">{error}</div>}
         {confirmDelete && (
           <div className="flex flex-col gap-4">
             <p className="text-sm text-zinc-600">

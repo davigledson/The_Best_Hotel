@@ -9,6 +9,7 @@ import { useFindAll4 } from '../../services/client-controller/client-controller'
 import { useCheckOut, useFindAll6, getFindAll6QueryKey } from '../../services/stay-controller/stay-controller'
 import { getFindAll5QueryKey } from '../../services/booking-controller/booking-controller'
 import { useAuth } from '../../contexts/AuthContext'
+import { FilterButton, FilterPanel } from '../../components/FilterPanel'
 
 
 const PAGE_SIZE = 20
@@ -58,6 +59,8 @@ function Modal({ open, title, onClose, children }: { open: boolean; title: strin
 export function CheckOut() {
   const queryClient = useQueryClient()
   const { user } = useAuth()
+  const [filters, setFilters] = useState<Record<string, string>>({})
+  const [filterOpen, setFilterOpen] = useState(false)
   const [page, setPage] = useState(0)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [employeeId, setEmployeeId] = useState('')
@@ -91,8 +94,33 @@ export function CheckOut() {
   const clientsById = useMemo(() => new Map(clients.map((c) => [getId(c), c])), [clients])
   const bookingsById = useMemo(() => new Map(bookings.map((b) => [getId(b), b])), [bookings])
 
-  const totalPages = Math.max(1, Math.ceil(activeStays.length / PAGE_SIZE))
-  const paginated = activeStays.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+  const getClient = useCallback((clientId: any) => {
+    const id = typeof clientId === 'object' && clientId?.$oid ? clientId.$oid : clientId
+    return clientsById.get(String(id))
+  }, [clientsById])
+
+  const getRoomByBooking = useCallback((bookingId: any) => {
+    const id = typeof bookingId === 'object' && bookingId?.$oid ? bookingId.$oid : bookingId
+    const booking = bookingsById.get(String(id))
+    if (!booking) return null
+    const roomId = typeof booking.roomId === 'object' && (booking.roomId as any)?.$oid ? (booking.roomId as any).$oid : booking.roomId
+    return roomsById.get(String(roomId)) ?? null
+  }, [bookingsById, roomsById])
+
+  const filtered = activeStays.filter((s) => {
+    if (filters.clientName) {
+      const client = getClient(s.clientId)
+      if (!(client?.name ?? '').toLowerCase().includes(filters.clientName.toLowerCase())) return false
+    }
+    if (filters.roomNumber) {
+      const room = getRoomByBooking(s.bookingId)
+      if (!(room?.number ?? '').toLowerCase().includes(filters.roomNumber.toLowerCase())) return false
+    }
+    return true
+  })
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
   const selectedStay = activeStays.find((s) => getId(s) === selectedId)
 
@@ -108,19 +136,6 @@ export function CheckOut() {
       },
     },
   })
-
-  const getRoomByBooking = useCallback((bookingId: any) => {
-    const id = typeof bookingId === 'object' && bookingId?.$oid ? bookingId.$oid : bookingId
-    const booking = bookingsById.get(String(id))
-    if (!booking) return null
-    const roomId = typeof booking.roomId === 'object' && (booking.roomId as any)?.$oid ? (booking.roomId as any).$oid : booking.roomId
-    return roomsById.get(String(roomId)) ?? null
-  }, [bookingsById, roomsById])
-
-  const getClient = useCallback((clientId: any) => {
-    const id = typeof clientId === 'object' && clientId?.$oid ? clientId.$oid : clientId
-    return clientsById.get(String(id))
-  }, [clientsById])
 
   const deliveredTotal = useMemo(() => {
     if (!selectedStay?.consumptions) return 0
@@ -156,16 +171,35 @@ export function CheckOut() {
         </div>
       )}
 
-      {activeStays.length === 0 ? (
-        <div className="bg-white rounded-xl border border-zinc-100 p-16 flex flex-col items-center justify-center gap-3 text-center">
-          <LogOut size={36} className="text-zinc-200" />
-          <p className="text-zinc-400 text-sm">Nenhuma estadia ativa no momento</p>
-        </div>
-      ) : (
-        <>
-          {/* Grid de cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {paginated.map((s) => {
+      {/* Filtros */}
+      <div className="flex items-center gap-3">
+        <FilterButton
+          activeCount={Object.values(filters).filter(Boolean).length}
+          onClick={() => setFilterOpen(!filterOpen)}
+        />
+      </div>
+
+      <div className="flex gap-6">
+        <FilterPanel
+          open={filterOpen}
+          config={[
+            { key: 'clientName', label: 'Nome do hóspede', type: 'text' },
+            { key: 'roomNumber', label: 'Número do quarto', type: 'text' },
+          ]}
+          filters={filters}
+          onChange={(f) => { setFilters(f); setPage(0) }}
+        />
+        <div className="flex-1 min-w-0">
+          {filtered.length === 0 ? (
+            <div className="bg-white rounded-xl border border-zinc-100 p-16 flex flex-col items-center justify-center gap-3 text-center">
+              <LogOut size={36} className="text-zinc-200" />
+              <p className="text-zinc-400 text-sm">Nenhuma estadia ativa no momento</p>
+            </div>
+          ) : (
+            <>
+              {/* Grid de cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {paginated.map((s) => {
               const room = getRoomByBooking(s.bookingId)
               const client = getClient(s.clientId)
               const days = diffDaysFromNow(s.checkInAt)
@@ -268,6 +302,9 @@ export function CheckOut() {
           )}
         </>
       )}
+
+      </div>
+      </div>
 
       {/* Modal de detalhamento */}
       <Modal open={!!selectedStay && !showConfirm} title="Detalhes do Check-out" onClose={() => { setSelectedId(null); setSuccess(false) }}>

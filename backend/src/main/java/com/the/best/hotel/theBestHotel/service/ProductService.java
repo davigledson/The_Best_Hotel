@@ -32,12 +32,25 @@ public class ProductService {
     }
 
     public Product create(Product product) {
+        if (product.getCategory() == null || product.getCategory().isBlank()) {
+            throw new RuntimeException("Categoria do produto é obrigatória");
+        }
+        if (productRepository.existsByName(product.getName())) {
+            throw new RuntimeException("Nome do produto já existe");
+        }
         product.setActive(true);
         return productRepository.save(product);
     }
 
     public Product update(ObjectId id, Product updated) {
         Product existing = findById(id);
+        if (updated.getCategory() == null || updated.getCategory().isBlank()) {
+            throw new RuntimeException("Categoria do produto é obrigatória");
+        }
+        if (updated.getName() != null && !updated.getName().equals(existing.getName())
+                && productRepository.existsByName(updated.getName())) {
+            throw new RuntimeException("Nome do produto já existe");
+        }
         existing.setName(updated.getName());
         existing.setCategory(updated.getCategory());
         existing.setPrice(updated.getPrice());

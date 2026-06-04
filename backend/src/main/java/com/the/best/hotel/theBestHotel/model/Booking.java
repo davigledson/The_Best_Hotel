@@ -24,6 +24,8 @@ public class Booking {
 
     private List<Guest> guests;
 
+    private int numberOfGuests = 1;
+
     private LocalDate checkInDate;
 
     private LocalDate checkOutDate;

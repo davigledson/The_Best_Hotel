@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Plus, X, Search, Calendar, BedDouble, Users, ChevronDown, XCircle, Check } from 'lucide-react'
+import { Plus, X, Search, Calendar, BedDouble, Users, ChevronDown, Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   useFindAll5,
   useCreate5,
@@ -12,6 +12,8 @@ import { useFindAll1 } from '../../services/room-controller/room-controller'
 import { useFindAll4 } from '../../services/client-controller/client-controller'
 import type { Booking, BookingStatus } from '../../services/openAPIDefinition.schemas'
 import { useAuth } from '../../contexts/AuthContext'
+
+const PAGE_SIZE = 20
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   PENDING:   { label: 'Pendente',   color: 'bg-yellow-100 text-yellow-700' },
@@ -71,8 +73,8 @@ function BookingForm({ onSubmit, loading }: BookingFormProps) {
   const [checkOutDate, setCheckOutDate] = useState('')
   const [dailyRate, setDailyRate] = useState(0)
   const [advancePayment, setAdvancePayment] = useState(0)
-  const [guests, setGuests] = useState<{ clientId: string; holder: boolean }[]>([])
   const [selectedClientId, setSelectedClientId] = useState('')
+  const [numberOfGuests, setNumberOfGuests] = useState(1)
 
   const selectedRoom = rooms.find((r) => getId(r) === roomId)
 
@@ -86,45 +88,19 @@ function BookingForm({ onSubmit, loading }: BookingFormProps) {
   if (room?.dailyRate) setDailyRate(room.dailyRate)
 }
 
-  const addGuest = () => {
-    if (!selectedClientId) return
-    if (guests.find((g) => g.clientId === selectedClientId)) return
-    setGuests((prev) => [...prev, { clientId: selectedClientId, holder: prev.length === 0 }])
-    setSelectedClientId('')
-  }
-
-  const removeGuest = (clientId: string) => {
-    setGuests((prev) => {
-      const updated = prev.filter((g) => g.clientId !== clientId)
-      if (updated.length > 0 && !updated.find((g) => g.holder)) {
-        updated[0].holder = true
-      }
-      return updated
-    })
-  }
-
-  const toggleHolder = (clientId: string) => {
-    setGuests((prev) => prev.map((g) => ({ ...g, holder: g.clientId === clientId })))
-  }
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!selectedClientId) return
     onSubmit({
       roomId: roomId as any,
       checkInDate,
       checkOutDate,
       dailyRate,
       advancePayment,
-      guests: guests.map((g) => ({ clientId: g.clientId as any, holder: g.holder })),
+      numberOfGuests,
+      guests: [{ clientId: selectedClientId as any, holder: true }],
     })
   }
-
-  const guestClients = guests.map((g) => ({
-    ...g,
-    client: clients.find((c) => getId(c) === g.clientId),
-  }))
-
-  const availableClients = clients.filter((c) => !guests.find((g) => g.clientId === getId(c)))
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
@@ -182,53 +158,28 @@ function BookingForm({ onSubmit, loading }: BookingFormProps) {
         </div>
       </div>
 
-      {/* Hospedes */}
-      <div className="flex flex-col gap-2">
-        <label className={labelClass}>Hospedes</label>
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <select value={selectedClientId} onChange={(e) => setSelectedClientId(e.target.value)} className={selectClass}>
-              <option value="">Selecione um cliente</option>
-              {availableClients.map((c) => (
-                <option key={getId(c)} value={getId(c)}>
-                  {c.name} — {c.cpf}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
-          </div>
-          <button type="button" onClick={addGuest} disabled={!selectedClientId}
-            className="px-3 py-2 bg-amber-400 hover:bg-laranja disabled:opacity-40 text-zinc-900 rounded-lg text-sm font-medium transition-colors">
-            <Plus size={16} />
-          </button>
-        </div>
-
-        {guestClients.length > 0 && (
-          <div className="flex flex-col gap-2 mt-1">
-            {guestClients.map(({ clientId, holder, client }) => (
-              <div key={clientId} className="flex items-center justify-between bg-zinc-50 rounded-lg px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 text-xs font-semibold">
-                    {client?.name?.[0]?.toUpperCase() ?? '?'}
-                  </div>
-                  <div>
-                    <p className="text-sm text-zinc-800 font-medium">{client?.name ?? clientId}</p>
-                    <p className="text-xs text-zinc-400">{client?.cpf}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button type="button" onClick={() => toggleHolder(clientId)}
-                    className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${holder ? 'bg-amber-400 border-amber-400 text-zinc-900 font-medium' : 'border-zinc-200 text-zinc-400 hover:border-amber-300'}`}>
-                    Titular
-                  </button>
-                  <button type="button" onClick={() => removeGuest(clientId)} className="text-zinc-300 hover:text-red-400 transition-colors">
-                    <XCircle size={16} />
-                  </button>
-                </div>
-              </div>
+      {/* Cliente titular */}
+      <div className="flex flex-col gap-1.5">
+        <label className={labelClass}>Cliente titular</label>
+        <div className="relative">
+          <select value={selectedClientId} onChange={(e) => setSelectedClientId(e.target.value)} required className={selectClass}>
+            <option value="">Selecione um cliente</option>
+            {clients.map((c) => (
+              <option key={getId(c)} value={getId(c)}>
+                {c.name} — {c.cpf}
+              </option>
             ))}
-          </div>
-        )}
+          </select>
+          <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+        </div>
+      </div>
+
+      {/* Número de hóspedes */}
+      <div className="flex flex-col gap-1.5">
+        <label className={labelClass}>Número de hóspedes</label>
+        <input type="number" min={1} value={numberOfGuests}
+          onChange={(e) => setNumberOfGuests(parseInt(e.target.value) || 1)}
+          className={selectClass} />
       </div>
 
       <button type="submit" disabled={loading}
@@ -244,8 +195,10 @@ export function Reservas() {
   const { user } = useAuth()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<BookingStatus | ''>('')
+  const [page, setPage] = useState(0)
   const [modalCreate, setModalCreate] = useState(false)
   const [confirmCancel, setConfirmCancel] = useState<Booking | null>(null)
+  const [confirmApprove, setConfirmApprove] = useState<Booking | null>(null)
 
   const { data: bookings = [], isLoading } = useFindAll5()
   const { data: rooms = [] } = useFindAll1()
@@ -261,7 +214,7 @@ export function Reservas() {
   })
 
   const approveMutation = useApprove({
-    mutation: { onSuccess: () => invalidate() },
+    mutation: { onSuccess: () => { invalidate(); setConfirmApprove(null) } },
   })
 
   const getRoomNumber = (roomId: any) => {
@@ -277,6 +230,9 @@ export function Reservas() {
     const matchStatus = statusFilter ? b.status === statusFilter : true
     return matchSearch && matchStatus
   })
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
   const counts = Object.keys(statusConfig).reduce((acc, key) => {
     acc[key] = bookings.filter((b) => b.status === key).length
@@ -301,7 +257,7 @@ export function Reservas() {
       {/* Status cards */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {Object.entries(statusConfig).map(([key, { label, color }]) => (
-          <button key={key} onClick={() => setStatusFilter(statusFilter === key ? '' : key as BookingStatus)}
+          <button key={key} onClick={() => { setStatusFilter(statusFilter === key ? '' : key as BookingStatus); setPage(0) }}
             className={`flex flex-col gap-1 p-3 rounded-xl border transition-all text-left ${statusFilter === key ? 'border-amber-400 bg-amber-50' : 'border-zinc-100 bg-white hover:border-zinc-200'}`}>
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full w-fit ${color}`}>{label}</span>
             <span className="text-2xl font-semibold text-zinc-800">{counts[key] ?? 0}</span>
@@ -312,7 +268,7 @@ export function Reservas() {
       {/* Search */}
       <div className="relative max-w-sm">
         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-        <input value={search} onChange={(e) => setSearch(e.target.value)}
+        <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(0) }}
           placeholder="Buscar por quarto ou status..."
           className="w-full pl-9 pr-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-verde focus:border-transparent placeholder:text-zinc-300" />
       </div>
@@ -340,7 +296,7 @@ export function Reservas() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((b) => {
+              {paginated.map((b) => {
                 const status = statusConfig[b.status ?? ''] ?? { label: b.status, color: 'bg-zinc-100 text-zinc-500' }
                 const canCancel = b.status === 'PENDING' || b.status === 'CONFIRMED'
                 return (
@@ -358,7 +314,7 @@ export function Reservas() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1 text-zinc-500">
                         <Users size={13} />
-                        <span>{b.guests?.length ?? 0}</span>
+                        <span>{b.numberOfGuests ?? b.guests?.length ?? 0}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-zinc-600">R$ {b.dailyRate?.toFixed(2)}</td>
@@ -369,9 +325,8 @@ export function Reservas() {
                     </td>
                     <td className="px-4 py-3 text-right flex items-center justify-end gap-2">
                       {b.status === 'PENDING' && user?.role !== 'CLIENT' && (
-                        <button onClick={() => approveMutation.mutate({ id: getId(b) })}
-                          disabled={approveMutation.isPending}
-                          className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700 border border-green-200 hover:border-green-400 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50">
+                        <button onClick={() => setConfirmApprove(b)}
+                          className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700 border border-green-200 hover:border-green-400 px-2.5 py-1 rounded-lg transition-colors">
                           <Check size={13} /> Aprovar
                         </button>
                       )}
@@ -389,6 +344,23 @@ export function Reservas() {
           </table>
         )}
       </div>
+
+      {/* Paginacao */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-2">
+          <button onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0}
+            className="p-2 rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 transition-colors">
+            <ChevronLeft size={16} />
+          </button>
+          <span className="text-sm text-zinc-500 px-3">
+            {page + 1} de {totalPages}
+          </span>
+          <button onClick={() => setPage(Math.min(totalPages - 1, page + 1))} disabled={page >= totalPages - 1}
+            className="p-2 rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 transition-colors">
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      )}
 
       {/* Modal criar */}
       <Modal open={modalCreate} title="Nova reserva" onClose={() => setModalCreate(false)}>
@@ -417,6 +389,33 @@ export function Reservas() {
                 disabled={cancelMutation.isPending}
                 className="px-4 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-600 disabled:opacity-50 rounded-lg transition-colors">
                 {cancelMutation.isPending ? 'Cancelando...' : 'Confirmar cancelamento'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Modal aprovar */}
+      <Modal open={!!confirmApprove} title="Aprovar reserva" onClose={() => setConfirmApprove(null)}>
+        {confirmApprove && (
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-zinc-600">
+              Confirmar a aprovacao da reserva do quarto{' '}
+              <span className="font-medium text-zinc-800">Nº {getRoomNumber(confirmApprove.roomId)}</span>?
+            </p>
+            <p className="text-xs text-zinc-400">
+              Apos aprovada, a reserva ficara disponivel para check-in.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setConfirmApprove(null)}
+                className="px-4 py-2 text-sm text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors">
+                Voltar
+              </button>
+              <button
+                onClick={() => approveMutation.mutate({ id: getId(confirmApprove) })}
+                disabled={approveMutation.isPending}
+                className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 rounded-lg transition-colors">
+                {approveMutation.isPending ? 'Aprovando...' : 'Confirmar aprovacao'}
               </button>
             </div>
           </div>

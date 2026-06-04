@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { useQueryClient, useMutation } from '@tanstack/react-query'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
-  Plus, X, Search, Coffee, ShoppingBasket, ChevronDown, Check, XCircle,
+  Plus, X, Coffee, ShoppingBasket, ChevronDown, Check, XCircle,
   ChevronLeft, ChevronRight, BedDouble, Users, CalendarDays, LogOut, ArrowLeft,
 } from 'lucide-react'
 import {
@@ -16,6 +16,7 @@ import { useFindAll5 } from '../../services/booking-controller/booking-controlle
 import { useFindAll4 } from '../../services/client-controller/client-controller'
 import { customInstance } from '../../lib/axios'
 import type { Stay, DeliveryStatus } from '../../services/openAPIDefinition.schemas'
+import { FilterButton, FilterPanel } from '../../components/FilterPanel'
 
 
 const PAGE_SIZE = 20
@@ -92,7 +93,8 @@ export function Estadias() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const [search, setSearch] = useState('')
+  const [filters, setFilters] = useState<Record<string, string>>({})
+  const [filterOpen, setFilterOpen] = useState(false)
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(0)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -139,9 +141,15 @@ export function Estadias() {
   }, [clientsById])
 
   const filtered = stays.filter((s) => {
-    const q = search.toLowerCase()
-    if (q && !getId(s).toLowerCase().includes(q) && !(s.status ?? '').toLowerCase().includes(q)) return false
     if (statusFilter && s.status !== statusFilter) return false
+    if (filters.clientName) {
+      const client = getClient(s.clientId)
+      if (!(client?.name ?? '').toLowerCase().includes(filters.clientName.toLowerCase())) return false
+    }
+    if (filters.roomNumber) {
+      const room = getRoomByBooking(s.bookingId)
+      if (!(room?.number ?? '').toLowerCase().includes(filters.roomNumber.toLowerCase())) return false
+    }
     return true
   })
 
@@ -149,11 +157,8 @@ export function Estadias() {
   const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
   const selectedStay = stays.find((s) => getId(s) === selectedId)
 
-  const filterTabs = [
-    { label: 'Todas', value: '' },
-    { label: 'Ativas', value: 'ACTIVE' },
-    { label: 'Finalizadas', value: 'CLOSED' },
-  ]
+  const totalAtivas = stays.filter((s) => s.status === 'ACTIVE').length
+  const totalFinalizadas = stays.filter((s) => s.status === 'CLOSED').length
 
   const deliveredTotal = useMemo(() => {
     if (!selectedStay?.consumptions) return 0
@@ -178,21 +183,31 @@ export function Estadias() {
         )}
       </div>
 
-      {/* Filtro + busca */}
-      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-        <div className="flex gap-1 bg-zinc-100 rounded-lg p-1">
-          {filterTabs.map(({ label, value }) => (
-            <button key={value} onClick={() => { setStatusFilter(value); setPage(0) }}
-              className={`text-sm px-3 py-1.5 rounded-md transition-colors ${statusFilter === value ? 'bg-white text-zinc-800 font-medium shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}>
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="relative max-w-sm w-full sm:w-auto">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-          <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(0) }} placeholder="Buscar por id ou status..."
-            className="w-full pl-9 pr-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-verde" />
-        </div>
+      {/* Status cards */}
+      <div className="grid grid-cols-3 gap-3">
+        <button onClick={() => { setStatusFilter(''); setPage(0) }}
+          className={`flex flex-col gap-1 p-3 rounded-xl border transition-all text-left ${statusFilter === '' ? 'border-amber-400 bg-amber-50' : 'border-zinc-100 bg-white hover:border-zinc-200'}`}>
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full w-fit bg-zinc-100 text-zinc-600">Todas</span>
+          <span className="text-2xl font-semibold text-zinc-800">{stays.length}</span>
+        </button>
+        <button onClick={() => { setStatusFilter('ACTIVE'); setPage(0) }}
+          className={`flex flex-col gap-1 p-3 rounded-xl border transition-all text-left ${statusFilter === 'ACTIVE' ? 'border-amber-400 bg-amber-50' : 'border-zinc-100 bg-white hover:border-zinc-200'}`}>
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full w-fit bg-verde/10 text-verde">Ativas</span>
+          <span className="text-2xl font-semibold text-zinc-800">{totalAtivas}</span>
+        </button>
+        <button onClick={() => { setStatusFilter('CLOSED'); setPage(0) }}
+          className={`flex flex-col gap-1 p-3 rounded-xl border transition-all text-left ${statusFilter === 'CLOSED' ? 'border-amber-400 bg-amber-50' : 'border-zinc-100 bg-white hover:border-zinc-200'}`}>
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full w-fit bg-zinc-100 text-zinc-500">Finalizadas</span>
+          <span className="text-2xl font-semibold text-zinc-800">{totalFinalizadas}</span>
+        </button>
+      </div>
+
+      {/* Filtros */}
+      <div className="flex items-center gap-3">
+        <FilterButton
+          activeCount={Object.values(filters).filter(Boolean).length}
+          onClick={() => setFilterOpen(!filterOpen)}
+        />
       </div>
 
       {selectedId ? (
@@ -364,18 +379,28 @@ export function Estadias() {
           })()}
         </div>
       ) : (
-        /* ── Grid de cards ── */
-        <>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-16 text-zinc-400 text-sm">Carregando...</div>
-          ) : paginated.length === 0 ? (
-            <div className="bg-white rounded-xl border border-zinc-100 p-16 flex flex-col items-center gap-3 text-center">
-              <Coffee size={36} className="text-zinc-200" />
-              <p className="text-zinc-400 text-sm">Nenhuma estadia encontrada</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {paginated.map((s) => {
+        <div className="flex gap-6">
+          <FilterPanel
+            open={filterOpen}
+            config={[
+              { key: 'clientName', label: 'Nome do hóspede', type: 'text' },
+              { key: 'roomNumber', label: 'Número do quarto', type: 'text' },
+            ]}
+            filters={filters}
+            onChange={(f) => { setFilters(f); setPage(0) }}
+          />
+          <div className="flex-1 min-w-0">
+            {/* ── Grid de cards ── */}
+            {isLoading ? (
+              <div className="flex items-center justify-center py-16 text-zinc-400 text-sm">Carregando...</div>
+            ) : paginated.length === 0 ? (
+              <div className="bg-white rounded-xl border border-zinc-100 p-16 flex flex-col items-center gap-3 text-center">
+                <Coffee size={36} className="text-zinc-200" />
+                <p className="text-zinc-400 text-sm">Nenhuma estadia encontrada</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {paginated.map((s) => {
                 const room = getRoomByBooking(s.bookingId)
                 const client = getClient(s.clientId)
                 const days = diffDaysFromNow(s.checkInAt)
@@ -481,7 +506,8 @@ export function Estadias() {
               </button>
             </div>
           )}
-        </>
+        </div>
+      </div>
       )}
 
       {/* Modal Check-in */}

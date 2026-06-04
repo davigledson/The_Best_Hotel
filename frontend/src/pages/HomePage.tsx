@@ -241,13 +241,6 @@ export function HomePage() {
                 Nao tem conta?{' '}
                 <button type="button" onClick={switchMode} className="text-amber-600 hover:text-amber-700 font-medium underline cursor-pointer">Cadastre-se</button>
               </p>
-
-              <div className="flex flex-col gap-1 text-center">
-                <p className="text-xs text-zinc-400">Contas de teste:</p>
-                <p className="text-xs text-zinc-300">admin@gmail.com / admin123</p>
-                <p className="text-xs text-zinc-300">funcionario@gmail.com / func123</p>
-                <p className="text-xs text-zinc-300">cliente@gmail.com / cliente123</p>
-              </div>
             </form>
           ) : (
             <form onSubmit={handleRegister} className="bg-white rounded-xl border border-zinc-100 p-8 flex flex-col gap-5">

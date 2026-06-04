@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Pencil, Trash2, X, Search, User } from 'lucide-react'
+import { Pencil, Trash2, X, User, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   useFindAll4,
   useUpdate4,
@@ -8,6 +8,9 @@ import {
   getFindAll4QueryKey,
 } from '../../services/client-controller/client-controller'
 import type { Client } from '../../services/openAPIDefinition.schemas'
+import { FilterButton, FilterPanel } from '../../components/FilterPanel'
+
+const PAGE_SIZE = 20
 
 function formatCPF(value: string) {
   return value
@@ -108,9 +111,12 @@ function ClientForm({ initial, onSubmit, loading, submitLabel }: FormProps) {
 
 export function Clientes() {
   const queryClient = useQueryClient()
-  const [search, setSearch] = useState('')
+  const [filters, setFilters] = useState<Record<string, string>>({})
+  const [filterOpen, setFilterOpen] = useState(false)
+  const [page, setPage] = useState(0)
   const [modalEdit, setModalEdit] = useState<Client | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Client | null>(null)
+  const [error, setError] = useState('')
 
   const { data: clients = [], isLoading } = useFindAll4()
 
@@ -118,24 +124,28 @@ export function Clientes() {
 
   const updateMutation = useUpdate4({
     mutation: {
-      onSuccess: () => { invalidate(); setModalEdit(null) },
+      onSuccess: () => { invalidate(); setModalEdit(null); setError('') },
+      onError: (err) => setError((err as any)?.response?.data?.message || 'Erro ao atualizar cliente'),
     },
   })
 
   const deleteMutation = useDelete4({
     mutation: {
-      onSuccess: () => { invalidate(); setConfirmDelete(null) },
+      onSuccess: () => { invalidate(); setConfirmDelete(null); setError('') },
+      onError: (err) => setError((err as any)?.response?.data?.message || 'Erro ao excluir cliente'),
     },
   })
 
   const filtered = clients.filter((c) => {
-    const q = search.toLowerCase()
-    return (
-      c.name?.toLowerCase().includes(q) ||
-      c.cpf?.includes(q) ||
-      c.email?.toLowerCase().includes(q)
-    )
+    if (filters.name && !(c.name ?? '').toLowerCase().includes(filters.name.toLowerCase())) return false
+    if (filters.cpf && !(c.cpf ?? '').includes(filters.cpf)) return false
+    if (filters.email && !(c.email ?? '').toLowerCase().includes(filters.email.toLowerCase())) return false
+    if (filters.phone && !(c.phone ?? '').includes(filters.phone)) return false
+    return true
   })
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
   const getId = (client: Client) => {
     const id = client.id as unknown as { $oid?: string } | string
@@ -154,17 +164,27 @@ export function Clientes() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-        <input
-          type="text"
-          placeholder="Buscar por nome, CPF ou e-mail..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-9 pr-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-verde focus:border-transparent placeholder:text-zinc-300"
+      {/* Filtros */}
+      <div className="flex items-center gap-3">
+        <FilterButton
+          activeCount={Object.values(filters).filter(Boolean).length}
+          onClick={() => setFilterOpen(!filterOpen)}
         />
       </div>
+
+      <div className="flex gap-6">
+        <FilterPanel
+          open={filterOpen}
+          config={[
+            { key: 'name', label: 'Nome', type: 'text' },
+            { key: 'cpf', label: 'CPF', type: 'text' },
+            { key: 'email', label: 'E-mail', type: 'text' },
+            { key: 'phone', label: 'Telefone', type: 'text' },
+          ]}
+          filters={filters}
+          onChange={(f) => { setFilters(f); setPage(0) }}
+        />
+        <div className="flex-1 min-w-0">
 
       {/* Table */}
       <div className="bg-white rounded-xl border border-zinc-100 overflow-hidden">
@@ -189,7 +209,7 @@ export function Clientes() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((client) => (
+              {paginated.map((client) => (
                 <tr key={getId(client)} className="border-b border-zinc-50 hover:bg-zinc-50 transition-colors">
                   <td className="px-4 py-3 font-medium text-zinc-800">{client.name}</td>
                   <td className="px-4 py-3 text-zinc-500">{client.cpf}</td>
@@ -220,8 +240,29 @@ export function Clientes() {
         )}
       </div>
 
+        </div>
+      </div>
+
+      {/* Paginacao */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-2">
+          <button onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0}
+            className="p-2 rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 transition-colors">
+            <ChevronLeft size={16} />
+          </button>
+          <span className="text-sm text-zinc-500 px-3">
+            {page + 1} de {totalPages}
+          </span>
+          <button onClick={() => setPage(Math.min(totalPages - 1, page + 1))} disabled={page >= totalPages - 1}
+            className="p-2 rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 transition-colors">
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      )}
+
       {/* Modal editar */}
       <Modal open={!!modalEdit} title="Editar cliente" onClose={() => setModalEdit(null)}>
+        {error && <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-lg mb-3">{error}</div>}
         {modalEdit && (
           <ClientForm
             initial={modalEdit}
@@ -234,6 +275,7 @@ export function Clientes() {
 
       {/* Modal confirmar exclusao */}
       <Modal open={!!confirmDelete} title="Excluir cliente" onClose={() => setConfirmDelete(null)}>
+        {error && <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-lg mb-3">{error}</div>}
         {confirmDelete && (
           <div className="flex flex-col gap-4">
             <p className="text-sm text-zinc-600">

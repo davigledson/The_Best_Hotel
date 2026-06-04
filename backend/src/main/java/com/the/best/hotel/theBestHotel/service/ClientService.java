@@ -25,10 +25,10 @@ public class ClientService {
 
     public Client create(Client client) {
         if (clientRepository.existsByCpf(client.getCpf())) {
-            throw new RuntimeException("CPF already in use");
+            throw new RuntimeException("CPF já está em uso");
         }
         if (clientRepository.existsByEmail(client.getEmail())) {
-            throw new RuntimeException("Email already in use");
+            throw new RuntimeException("Email já está em uso");
         }
         return clientRepository.save(client);
     }

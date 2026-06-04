@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Pencil, Trash2, X, Search, UserCog, ChevronDown } from 'lucide-react'
+import { Pencil, Trash2, X, UserCog, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   useFindAll3,
   useUpdate3,
@@ -12,6 +12,9 @@ import {
   getFindAllQueryKey,
 } from '../../services/user-controller/user-controller'
 import type { Employee, User } from '../../services/openAPIDefinition.schemas'
+import { FilterButton, FilterPanel } from '../../components/FilterPanel'
+
+const PAGE_SIZE = 20
 
 function formatCPF(value: string) {
   return value
@@ -160,9 +163,12 @@ function EmployeeForm({ initial, onSubmit, loading, submitLabel, users, mode }: 
 
 export function Funcionarios() {
   const queryClient = useQueryClient()
-  const [search, setSearch] = useState('')
+  const [filters, setFilters] = useState<Record<string, string>>({})
+  const [filterOpen, setFilterOpen] = useState(false)
+  const [page, setPage] = useState(0)
   const [modalEdit, setModalEdit] = useState<Employee | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Employee | null>(null)
+  const [error, setError] = useState('')
 
   const { data: employees = [], isLoading } = useFindAll3()
   const { data: allUsers = [] } = useFindAll()
@@ -174,24 +180,27 @@ export function Funcionarios() {
 
   const updateMutation = useUpdate3({
     mutation: {
-      onSuccess: () => { invalidateAll(); setModalEdit(null) },
+      onSuccess: () => { invalidateAll(); setModalEdit(null); setError('') },
+      onError: (err) => setError((err as any)?.response?.data?.message || 'Erro ao atualizar funcionário'),
     },
   })
 
   const deleteMutation = useDelete3({
     mutation: {
-      onSuccess: () => { invalidateAll(); setConfirmDelete(null) },
+      onSuccess: () => { invalidateAll(); setConfirmDelete(null); setError('') },
+      onError: (err) => setError((err as any)?.response?.data?.message || 'Erro ao excluir funcionário'),
     },
   })
 
   const filtered = employees.filter((e) => {
-    const q = search.toLowerCase()
-    return (
-      e.name?.toLowerCase().includes(q) ||
-      e.cpf?.includes(q) ||
-      e.phone?.includes(q)
-    )
+    if (filters.name && !(e.name ?? '').toLowerCase().includes(filters.name.toLowerCase())) return false
+    if (filters.cpf && !(e.cpf ?? '').includes(filters.cpf)) return false
+    if (filters.phone && !(e.phone ?? '').includes(filters.phone)) return false
+    return true
   })
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
   const userMap = new Map(allUsers.map((u) => [getId(u), u]))
 
@@ -205,17 +214,26 @@ export function Funcionarios() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-        <input
-          type="text"
-          placeholder="Buscar por nome, CPF ou telefone..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-9 pr-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-verde focus:border-transparent placeholder:text-zinc-300"
+      {/* Filtros */}
+      <div className="flex items-center gap-3">
+        <FilterButton
+          activeCount={Object.values(filters).filter(Boolean).length}
+          onClick={() => setFilterOpen(!filterOpen)}
         />
       </div>
+
+      <div className="flex gap-6">
+        <FilterPanel
+          open={filterOpen}
+          config={[
+            { key: 'name', label: 'Nome', type: 'text' },
+            { key: 'cpf', label: 'CPF', type: 'text' },
+            { key: 'phone', label: 'Telefone', type: 'text' },
+          ]}
+          filters={filters}
+          onChange={(f) => { setFilters(f); setPage(0) }}
+        />
+        <div className="flex-1 min-w-0">
 
       {/* Cards */}
       {isLoading ? (
@@ -229,7 +247,7 @@ export function Funcionarios() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((employee) => (
+          {paginated.map((employee) => (
             <div
               key={getId(employee)}
               className="bg-white rounded-xl border border-zinc-100 p-4 flex flex-col gap-3"
@@ -278,8 +296,29 @@ export function Funcionarios() {
         </div>
       )}
 
+        </div>
+      </div>
+
+      {/* Paginacao */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-2">
+          <button onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0}
+            className="p-2 rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 transition-colors">
+            <ChevronLeft size={16} />
+          </button>
+          <span className="text-sm text-zinc-500 px-3">
+            {page + 1} de {totalPages}
+          </span>
+          <button onClick={() => setPage(Math.min(totalPages - 1, page + 1))} disabled={page >= totalPages - 1}
+            className="p-2 rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 transition-colors">
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      )}
+
       {/* Modal editar */}
       <Modal open={!!modalEdit} title="Editar funcionario" onClose={() => setModalEdit(null)}>
+        {error && <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-lg mb-3">{error}</div>}
         {modalEdit && (
           <EmployeeForm
             initial={modalEdit}
@@ -293,6 +332,7 @@ export function Funcionarios() {
 
       {/* Modal confirmar exclusao */}
       <Modal open={!!confirmDelete} title="Excluir funcionario" onClose={() => setConfirmDelete(null)}>
+        {error && <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-lg mb-3">{error}</div>}
         {confirmDelete && (
           <div className="flex flex-col gap-4">
             <p className="text-sm text-zinc-600">

@@ -50,6 +50,7 @@ export function Consumos() {
   const queryClient = useQueryClient()
   const [orderStayId, setOrderStayId] = useState<string | null>(null)
   const [orderForm, setOrderForm] = useState({ productId: '', quantity: '1', deliveryStatus: 'FOR_DELIVERY' as DeliveryStatus, notes: '' })
+  const [confirmAction, setConfirmAction] = useState<{ stayId: string; consumptionId: string; action: 'DELIVERED' | 'CANCELLED' } | null>(null)
 
   const myStaysKey = ['my-stays']
   const { data: stays = [], isLoading } = useQuery({
@@ -72,7 +73,7 @@ export function Consumos() {
   const updateStatus = useMutation({
     mutationFn: (params: { stayId: string; consumptionId: string; deliveryStatus: DeliveryStatus }) =>
       customInstance<Stay>({ url: `/stays/${params.stayId}/consumptions/${params.consumptionId}`, method: 'PUT', data: { deliveryStatus: params.deliveryStatus } }),
-    onSuccess: () => invalidate(),
+    onSuccess: () => { invalidate(); setConfirmAction(null) },
   })
 
   const handleOrder = (e: React.FormEvent) => {
@@ -90,11 +91,11 @@ export function Consumos() {
   }
 
   const handleCancel = (stayId: string, consumptionId: string) => {
-    updateStatus.mutate({ stayId, consumptionId, deliveryStatus: 'CANCELLED' })
+    setConfirmAction({ stayId, consumptionId, action: 'CANCELLED' })
   }
 
   const handleConfirm = (stayId: string, consumptionId: string) => {
-    updateStatus.mutate({ stayId, consumptionId, deliveryStatus: 'DELIVERED' })
+    setConfirmAction({ stayId, consumptionId, action: 'DELIVERED' })
   }
 
   const canCancel = (c: any) => c.deliveryStatus !== 'DELIVERED' && c.deliveryStatus !== 'CANCELLED'
@@ -258,6 +259,31 @@ export function Consumos() {
             {createConsumption.isPending ? 'Registrando...' : 'Confirmar pedido'}
           </button>
         </form>
+      </Modal>
+
+      {/* Modal confirmar acao */}
+      <Modal open={!!confirmAction} title={confirmAction?.action === 'DELIVERED' ? 'Confirmar recebimento' : 'Cancelar pedido'} onClose={() => setConfirmAction(null)}>
+        {confirmAction && (
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-zinc-600">
+              {confirmAction.action === 'DELIVERED'
+                ? 'Confirmar que recebeu este item?'
+                : 'Tem certeza que deseja cancelar este pedido?'}
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setConfirmAction(null)} disabled={updateStatus.isPending}
+                className="px-4 py-2 text-sm text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors">
+                Voltar
+              </button>
+              <button
+                onClick={() => updateStatus.mutate({ stayId: confirmAction.stayId, consumptionId: confirmAction.consumptionId, deliveryStatus: confirmAction.action })}
+                disabled={updateStatus.isPending}
+                className={`px-4 py-2 text-sm font-medium text-white disabled:opacity-50 rounded-lg transition-colors ${confirmAction.action === 'DELIVERED' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-500 hover:bg-red-600'}`}>
+                {updateStatus.isPending ? 'Confirmando...' : 'Confirmar'}
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   )

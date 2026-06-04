@@ -7,6 +7,7 @@ import { useFindAll3 } from '../../services/employee-controller/employee-control
 import { useFindAll4 } from '../../services/client-controller/client-controller'
 import { useCheckIn, getFindAll6QueryKey } from '../../services/stay-controller/stay-controller'
 import { useAuth } from '../../contexts/AuthContext'
+import { FilterButton, FilterPanel } from '../../components/FilterPanel'
 
 const PAGE_SIZE = 20
 
@@ -54,6 +55,8 @@ function Modal({ open, title, onClose, children }: { open: boolean; title: strin
 export function CheckIn() {
   const queryClient = useQueryClient()
   const { user } = useAuth()
+  const [filters, setFilters] = useState<Record<string, string>>({})
+  const [filterOpen, setFilterOpen] = useState(false)
   const [page, setPage] = useState(0)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [employeeId, setEmployeeId] = useState('')
@@ -71,8 +74,34 @@ export function CheckIn() {
   const roomsById = useMemo(() => new Map(rooms.map((r) => [getId(r), r])), [rooms])
   const clientsById = useMemo(() => new Map(clients.map((c) => [getId(c), c])), [clients])
 
-  const totalPages = Math.max(1, Math.ceil(confirmedBookings.length / PAGE_SIZE))
-  const paginated = confirmedBookings.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+  const getRoom = (roomId: any) => {
+    const id = typeof roomId === 'object' && roomId?.$oid ? roomId.$oid : roomId
+    return roomsById.get(String(id))
+  }
+
+  const getClient = (clientId: any) => {
+    const id = typeof clientId === 'object' && clientId?.$oid ? clientId.$oid : clientId
+    return clientsById.get(String(id))
+  }
+
+  const filtered = confirmedBookings.filter((b) => {
+    if (filters.clientName) {
+      const holder = b.guests?.find((g) => g.holder)
+      const client = holder ? getClient(holder.clientId) : null
+      if (!(client?.name ?? '').toLowerCase().includes(filters.clientName.toLowerCase())) return false
+    }
+    if (filters.roomNumber) {
+      const room = getRoom(b.roomId)
+      if (!(room?.number ?? '').toLowerCase().includes(filters.roomNumber.toLowerCase())) return false
+    }
+    if (filters.checkInDate) {
+      if (!formatDate(b.checkInDate).includes(filters.checkInDate)) return false
+    }
+    return true
+  })
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
   const selectedBooking = confirmedBookings.find((b) => getId(b) === selectedId)
   const selectedEmployee = employees.find((e) => getId(e) === employeeId)
@@ -89,16 +118,6 @@ export function CheckIn() {
       },
     },
   })
-
-  const getRoom = (roomId: any) => {
-    const id = typeof roomId === 'object' && roomId?.$oid ? roomId.$oid : roomId
-    return roomsById.get(String(id))
-  }
-
-  const getClient = (clientId: any) => {
-    const id = typeof clientId === 'object' && clientId?.$oid ? clientId.$oid : clientId
-    return clientsById.get(String(id))
-  }
 
   const handleConfirm = () => {
     setSuccess(false)
@@ -122,90 +141,112 @@ export function CheckIn() {
         </div>
       )}
 
-      {confirmedBookings.length === 0 ? (
-        <div className="bg-white rounded-xl border border-zinc-100 p-16 flex flex-col items-center justify-center gap-3 text-center">
-          <LogIn size={36} className="text-zinc-200" />
-          <p className="text-zinc-400 text-sm">Nenhuma reserva confirmada disponivel para check-in</p>
-        </div>
-      ) : (
-        <>
-          {/* Grid de cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {paginated.map((b) => {
-              const room = getRoom(b.roomId)
-              const holder = b.guests?.find((g) => g.holder)
-              const client = holder ? getClient(holder.clientId) : null
-              const nights = diffDays(b.checkInDate, b.checkOutDate)
+      {/* Filtros */}
+      <div className="flex items-center gap-3">
+        <FilterButton
+          activeCount={Object.values(filters).filter(Boolean).length}
+          onClick={() => setFilterOpen(!filterOpen)}
+        />
+      </div>
 
-              return (
-                <button key={getId(b)} onClick={() => { setSelectedId(getId(b)); setShowConfirm(false); setEmployeeId('') }}
-                  className={`bg-white rounded-xl border p-4 flex flex-col gap-3 text-left transition-all hover:border-amber-300 hover:shadow-sm ${selectedId === getId(b) ? 'border-amber-400 ring-1 ring-amber-400' : 'border-zinc-100'}`}>
-
-                  {/* Topo */}
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
-                        <BedDouble size={18} className="text-blue-500" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-zinc-800 truncate">
-                          {room?.number ? `Quarto ${room.number}` : 'Sem quarto'}
-                        </p>
-                        <p className="text-xs text-zinc-400 truncate">{room?.type ?? 'Tipo não definido'}</p>
-                      </div>
-                    </div>
-                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-verde/10 text-verde shrink-0">
-                      Confirmada
-                    </span>
-                  </div>
-
-                  {/* Cliente */}
-                  <div className="flex items-center gap-1.5 text-xs text-zinc-500">
-                    <Users size={13} className="text-zinc-300 shrink-0" />
-                    <span className="truncate">{client?.name ?? 'Hóspede não identificado'}</span>
-                  </div>
-
-                  {/* Datas + diaria */}
-                  <div className="border-t border-zinc-50 pt-3 grid grid-cols-2 gap-2 text-xs">
-                    <div className="flex items-center gap-1.5 text-zinc-500">
-                      <CalendarDays size={13} className="text-zinc-300 shrink-0" />
-                      <span>{formatDate(b.checkInDate)} — {formatDate(b.checkOutDate)}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-zinc-500">
-                      <DollarSign size={13} className="text-zinc-300 shrink-0" />
-                      <span>R$ {(b.dailyRate ?? 0).toFixed(2)}/dia · {nights} noite(s)</span>
-                    </div>
-                  </div>
-
-                  {/* Selecionar */}
-                  <div className="flex gap-2 pt-1">
-                    <div className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg">
-                      <LogIn size={13} /> Selecionar
-                    </div>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Paginacao */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 pt-2">
-              <button onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0}
-                className="p-2 rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 transition-colors">
-                <ChevronLeft size={16} />
-              </button>
-              <span className="text-sm text-zinc-500 px-3">
-                {page + 1} de {totalPages}
-              </span>
-              <button onClick={() => setPage(Math.min(totalPages - 1, page + 1))} disabled={page >= totalPages - 1}
-                className="p-2 rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 transition-colors">
-                <ChevronRight size={16} />
-              </button>
+      <div className="flex gap-6">
+        <FilterPanel
+          open={filterOpen}
+          config={[
+            { key: 'clientName', label: 'Nome do hóspede', type: 'text' },
+            { key: 'roomNumber', label: 'Número do quarto', type: 'text' },
+            { key: 'checkInDate', label: 'Data check-in', type: 'text' },
+          ]}
+          filters={filters}
+          onChange={(f) => { setFilters(f); setPage(0) }}
+        />
+        <div className="flex-1 min-w-0">
+          {filtered.length === 0 ? (
+            <div className="bg-white rounded-xl border border-zinc-100 p-16 flex flex-col items-center justify-center gap-3 text-center">
+              <LogIn size={36} className="text-zinc-200" />
+              <p className="text-zinc-400 text-sm">Nenhuma reserva confirmada disponivel para check-in</p>
             </div>
+          ) : (
+            <>
+              {/* Grid de cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {paginated.map((b) => {
+                  const room = getRoom(b.roomId)
+                  const holder = b.guests?.find((g) => g.holder)
+                  const client = holder ? getClient(holder.clientId) : null
+                  const nights = diffDays(b.checkInDate, b.checkOutDate)
+
+                  return (
+                    <button key={getId(b)} onClick={() => { setSelectedId(getId(b)); setShowConfirm(false); setEmployeeId('') }}
+                      className={`bg-white rounded-xl border p-4 flex flex-col gap-3 text-left transition-all hover:border-amber-300 hover:shadow-sm ${selectedId === getId(b) ? 'border-amber-400 ring-1 ring-amber-400' : 'border-zinc-100'}`}>
+
+                      {/* Topo */}
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+                            <BedDouble size={18} className="text-blue-500" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-zinc-800 truncate">
+                              {room?.number ? `Quarto ${room.number}` : 'Sem quarto'}
+                            </p>
+                            <p className="text-xs text-zinc-400 truncate">{room?.type ?? 'Tipo não definido'}</p>
+                          </div>
+                        </div>
+                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-verde/10 text-verde shrink-0">
+                          Confirmada
+                        </span>
+                      </div>
+
+                      {/* Cliente */}
+                      <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+                        <Users size={13} className="text-zinc-300 shrink-0" />
+                        <span className="truncate">{client?.name ?? 'Hóspede não identificado'}</span>
+                      </div>
+
+                      {/* Datas + diaria */}
+                      <div className="border-t border-zinc-50 pt-3 grid grid-cols-2 gap-2 text-xs">
+                        <div className="flex items-center gap-1.5 text-zinc-500">
+                          <CalendarDays size={13} className="text-zinc-300 shrink-0" />
+                          <span>{formatDate(b.checkInDate)} — {formatDate(b.checkOutDate)}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-zinc-500">
+                          <DollarSign size={13} className="text-zinc-300 shrink-0" />
+                          <span>R$ {(b.dailyRate ?? 0).toFixed(2)}/dia · {nights} noite(s)</span>
+                        </div>
+                      </div>
+
+                      {/* Selecionar */}
+                      <div className="flex gap-2 pt-1">
+                        <div className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg">
+                          <LogIn size={13} /> Selecionar
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Paginacao */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 pt-2">
+                  <button onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0}
+                    className="p-2 rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 transition-colors">
+                    <ChevronLeft size={16} />
+                  </button>
+                  <span className="text-sm text-zinc-500 px-3">
+                    {page + 1} de {totalPages}
+                  </span>
+                  <button onClick={() => setPage(Math.min(totalPages - 1, page + 1))} disabled={page >= totalPages - 1}
+                    className="p-2 rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 transition-colors">
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              )}
+            </>
           )}
-        </>
-      )}
+        </div>
+      </div>
 
       {/* Modal de detalhamento */}
       <Modal open={!!selectedBooking && !showConfirm} title="Detalhes do Check-in" onClose={() => { setSelectedId(null); setSuccess(false) }}>
@@ -244,7 +285,7 @@ export function CheckIn() {
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-xs text-zinc-400">Hospedes</span>
-                  <span className="text-sm font-semibold text-zinc-800">{selectedBooking.guests?.length ?? 1}</span>
+                  <span className="text-sm font-semibold text-zinc-800">{selectedBooking.numberOfGuests ?? selectedBooking.guests?.length ?? 1}</span>
                 </div>
               </div>
 
@@ -313,7 +354,7 @@ export function CheckIn() {
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-xs text-zinc-400">Hospedes</span>
-                  <span className="text-sm font-semibold text-zinc-800">{selectedBooking.guests?.length ?? 1}</span>
+                  <span className="text-sm font-semibold text-zinc-800">{selectedBooking.numberOfGuests ?? selectedBooking.guests?.length ?? 1}</span>
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-xs text-zinc-400">Responsavel</span>

@@ -28,7 +28,7 @@ public class EmployeeService {
 
     public Employee create(Employee employee) {
         if (employeeRepository.existsByCpf(employee.getCpf())) {
-            throw new RuntimeException("CPF already in use");
+            throw new RuntimeException("CPF já está em uso");
         }
         ObjectId userId = employee.getUserId();
         if (userId == null) {
@@ -40,7 +40,7 @@ public class EmployeeService {
             throw new RuntimeException("User must have EMPLOYEE role");
         }
         if (user.getRefId() != null) {
-            throw new RuntimeException("User already linked to another employee");
+            throw new RuntimeException("Usuário já vinculado a outro funcionário");
         }
         employee = employeeRepository.save(employee);
         user.setRefId(employee.getId());
