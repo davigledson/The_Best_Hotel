@@ -1,4 +1,5 @@
-import { BedDouble, Users, ShoppingBasket, CalendarCheck, LogIn, TrendingUp, Activity, DollarSign, XCircle, PackageCheck, Clock } from 'lucide-react'
+import { BedDouble, Users, ShoppingBasket, CalendarCheck, LogIn, TrendingUp, DollarSign, PackageCheck, Check, X, AlertCircle } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { useFindAll1 } from '../../services/room-controller/room-controller'
 import { useFindAll4 } from '../../services/client-controller/client-controller'
 import { useFindAll2 } from '../../services/product-controller/product-controller'
@@ -31,29 +32,6 @@ function StatCard({ label, value, icon, color, sub }: StatCardProps) {
   )
 }
 
-interface ProgressBarProps {
-  label: string
-  value: number
-  total: number
-  color: string
-  showPercent?: boolean
-}
-
-function ProgressBar({ label, value, total, color, showPercent = true }: ProgressBarProps) {
-  const pct = total > 0 ? Math.round((value / total) * 100) : 0
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-zinc-600">{label}</span>
-        <span className="font-medium text-zinc-800">{value}{showPercent ? <span className="text-zinc-400 font-normal"> ({pct}%)</span> : null}</span>
-      </div>
-      <div className="h-2 bg-zinc-100 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  )
-}
-
 function formatDate(date?: string) {
   if (!date) return '—'
   const [y, m, d] = date.split('-')
@@ -66,6 +44,23 @@ function todayStr() {
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
+}
+
+const MONTH_NAMES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+
+const PIE_COLORS = ['#FFBA00', '#365943', '#3B82F6', '#D75103', '#EF4444']
+
+const bookingStatusConfig: Record<string, { label: string; color: string; border: string }> = {
+  PENDING:   { label: 'Pendente',   color: 'bg-yellow-100 text-yellow-700',   border: 'border-l-yellow-400' },
+  CONFIRMED: { label: 'Confirmada', color: 'bg-verde/10 text-verde',          border: 'border-l-green-500' },
+  CANCELLED: { label: 'Cancelada',  color: 'bg-red-100 text-red-600',         border: 'border-l-red-400' },
+  CHECKIN:   { label: 'Check-in',   color: 'bg-blue-100 text-blue-700',       border: 'border-l-blue-500' },
+  CHECKOUT:  { label: 'Check-out',  color: 'bg-zinc-100 text-zinc-600',       border: 'border-l-zinc-400' },
+}
+
+function monthKey(dateStr?: string) {
+  if (!dateStr) return ''
+  return dateStr.slice(0, 7)
 }
 
 export function Dashboard() {
@@ -87,13 +82,11 @@ export function Dashboard() {
   const closedStays = stays.filter((s) => s.status === 'CLOSED')
   const activeProducts = products.filter((p) => p.active).length
 
-  // Financial data
   const totalRevenue = closedStays.reduce((sum, s) => sum + (s.grandTotal ?? 0), 0)
   const totalConsumptionRevenue = closedStays.reduce((sum, s) => sum + (s.totalConsumptions ?? 0), 0)
   const totalDailiesRevenue = closedStays.reduce((sum, s) => sum + (s.totalDailies ?? 0), 0)
   const avgTicket = closedStays.length > 0 ? totalRevenue / closedStays.length : 0
 
-  // Consumption stats across all stays
   const allConsumptions: Consumption[] = stays.flatMap((s) => s.consumptions ?? [])
   const totalItems = allConsumptions.length
   const deliveredItems = allConsumptions.filter((c) => c.deliveryStatus === 'DELIVERED').length
@@ -102,7 +95,6 @@ export function Dashboard() {
     (c) => c.deliveryStatus !== 'DELIVERED' && c.deliveryStatus !== 'CANCELLED'
   ).length
 
-  // Top 5 most ordered products
   const productCounts: Record<string, { name: string; qty: number; total: number }> = {}
   allConsumptions.forEach((c) => {
     const key = c.productName ?? 'unknown'
@@ -110,36 +102,56 @@ export function Dashboard() {
     productCounts[key].qty += c.quantity ?? 0
     productCounts[key].total += (c.quantity ?? 0) * (c.unitPrice ?? 0)
   })
-  const topProducts = Object.values(productCounts).sort((a, b) => b.qty - a.qty).slice(0, 5)
+  const topProducts = Object.values(productCounts).sort((a, b) => b.qty - a.qty).slice(0, 10)
 
-  // Room occupancy by type
   const roomTypes: Record<string, { label: string; total: number; available: number; occupied: number; maintenance: number }> = {}
   rooms.forEach((r) => {
-    const t = r.type ?? 'Outro'
-    if (!roomTypes[t]) roomTypes[t] = { label: t, total: 0, available: 0, occupied: 0, maintenance: 0 }
-    roomTypes[t].total++
-    if (r.status === 'AVAILABLE') roomTypes[t].available++
-    else if (r.status === 'OCCUPIED') roomTypes[t].occupied++
-    else if (r.status === 'MAINTENANCE') roomTypes[t].maintenance++
+    const label = r.type ?? 'Outro'
+    if (!roomTypes[label]) roomTypes[label] = { label, total: 0, available: 0, occupied: 0, maintenance: 0 }
+    roomTypes[label].total++
+    if (r.status === 'AVAILABLE') roomTypes[label].available++
+    else if (r.status === 'OCCUPIED') roomTypes[label].occupied++
+    else if (r.status === 'MAINTENANCE') roomTypes[label].maintenance++
   })
 
-  // Today's activities
   const today = todayStr()
   const todayCheckins = bookings.filter((b) => b.checkInDate === today && b.status !== 'CANCELLED')
   const todayCheckouts = bookings.filter((b) => b.checkOutDate === today && b.status !== 'CANCELLED')
 
-  // Recent bookings (keep existing)
   const recentBookings = [...bookings]
     .sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime())
     .slice(0, 5)
 
-  const bookingStatusConfig: Record<string, { label: string; color: string }> = {
-    PENDING:   { label: 'Pendente',   color: 'bg-yellow-100 text-yellow-700' },
-    CONFIRMED: { label: 'Confirmada', color: 'bg-verde/10 text-verde' },
-    CANCELLED: { label: 'Cancelada',  color: 'bg-red-100 text-red-600' },
-    CHECKIN:   { label: 'Check-in',   color: 'bg-blue-100 text-blue-700' },
-    CHECKOUT:  { label: 'Check-out',  color: 'bg-zinc-100 text-zinc-600' },
-  }
+  // Monthly revenue
+  const monthlyData: Record<string, { month: string; diarias: number; consumos: number }> = {}
+  closedStays.forEach((s) => {
+    const mk = monthKey(s.checkInAt)
+    if (!mk) return
+    if (!monthlyData[mk]) {
+      const [y, m] = mk.split('-')
+      monthlyData[mk] = { month: `${MONTH_NAMES[parseInt(m) - 1]}/${y.slice(2)}`, diarias: 0, consumos: 0 }
+    }
+    monthlyData[mk].diarias += s.totalDailies ?? 0
+    monthlyData[mk].consumos += s.totalConsumptions ?? 0
+  })
+  const revenueChartData = Object.values(monthlyData).sort((a, b) => a.month.localeCompare(b.month))
+
+  // Booking status pie data
+  const bookingPieData = [
+    { name: 'Pendentes', value: bookingsPending },
+    { name: 'Confirmadas', value: bookingsConfirmed },
+    { name: 'Check-in', value: bookingsCheckin },
+    { name: 'Check-out', value: bookingsCheckout },
+    { name: 'Canceladas', value: bookingsCancelled },
+  ].filter((d) => d.value > 0)
+
+  // Room occupancy stacked data
+  const roomChartData = Object.entries(roomTypes).map(([, data]) => ({
+    name: data.label,
+    Disponiveis: data.available,
+    Ocupados: data.occupied,
+    Manutencao: data.maintenance,
+  }))
 
   if (isLoading) {
     return (
@@ -160,7 +172,7 @@ export function Dashboard() {
 
       {/* Cards principais */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Estadias ativas" value={activeStays.length} icon={<Activity size={18} className="text-blue-600" />} color="bg-blue-50" sub={`de ${rooms.length} quartos`} />
+        <StatCard label="Estadias ativas" value={activeStays.length} icon={<BedDouble size={18} className="text-blue-600" />} color="bg-blue-50" sub={`de ${rooms.length} quartos`} />
         <StatCard label="Reservas" value={bookings.length} icon={<CalendarCheck size={18} className="text-amber-600" />} color="bg-amber-50" sub={`${bookingsPending} pendentes`} />
         <StatCard label="Clientes" value={clients.length} icon={<Users size={18} className="text-green-600" />} color="bg-green-50" sub="cadastrados" />
         <StatCard label="Produtos ativos" value={activeProducts} icon={<ShoppingBasket size={18} className="text-purple-600" />} color="bg-purple-50" sub={`de ${products.length} total`} />
@@ -180,196 +192,241 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Cards de consumo */}
-      {totalItems > 0 && (
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <PackageCheck size={16} className="text-amber-500" />
-            <p className="font-medium text-zinc-700 text-sm">Consumos</p>
-          </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard label="Total de itens" value={totalItems} icon={<ShoppingBasket size={18} className="text-zinc-600" />} color="bg-zinc-50" />
-            <StatCard label="Entregues" value={deliveredItems} icon={<PackageCheck size={18} className="text-green-600" />} color="bg-green-50" sub={`${totalItems > 0 ? Math.round((deliveredItems / totalItems) * 100) : 0}%`} />
-            <StatCard label="Pendentes" value={pendingItems} icon={<Clock size={18} className="text-yellow-600" />} color="bg-yellow-50" sub={`${totalItems > 0 ? Math.round((pendingItems / totalItems) * 100) : 0}%`} />
-            <StatCard label="Cancelados" value={cancelledItems} icon={<XCircle size={18} className="text-red-500" />} color="bg-red-50" sub={`${totalItems > 0 ? Math.round((cancelledItems / totalItems) * 100) : 0}%`} />
-          </div>
+      {/* Receita mensal */}
+      <div className="bg-white rounded-xl border border-zinc-100 p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <TrendingUp size={16} className="text-amber-500" />
+          <p className="font-medium text-zinc-800 text-sm">Receita mensal</p>
         </div>
-      )}
+        {revenueChartData.length === 0 ? (
+          <p className="text-sm text-zinc-400 py-8 text-center">Nenhuma estadia fechada</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={revenueChartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#a1a1aa' }} />
+              <YAxis tick={{ fontSize: 12, fill: '#a1a1aa' }} tickFormatter={(v: number) => `R$${v}`} />
+              <Tooltip
+                contentStyle={{ fontSize: 13, borderRadius: 8, border: '1px solid #e4e4e7' }}
+                formatter={(value: number) => [`R$ ${value.toFixed(2)}`, undefined]}
+              />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Bar dataKey="diarias" name="Diarias" fill="#365943" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="consumos" name="Consumos" fill="#D75103" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-        {/* Ocupacao por tipo de quarto */}
-        <div className="bg-white rounded-xl border border-zinc-100 p-5 flex flex-col gap-4">
-          <div className="flex items-center gap-2">
+        {/* Status de reservas (Pie) */}
+        <div className="bg-white rounded-xl border border-zinc-100 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <CalendarCheck size={16} className="text-amber-500" />
+            <p className="font-medium text-zinc-800 text-sm">Status de reservas</p>
+          </div>
+          {bookingPieData.length === 0 ? (
+            <p className="text-sm text-zinc-400 py-8 text-center">Nenhuma reserva</p>
+          ) : (
+            <div className="flex items-center justify-center">
+              <ResponsiveContainer width="100%" height={260}>
+                <PieChart>
+                  <Pie
+                    data={bookingPieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    dataKey="value"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {bookingPieData.map((entry, i) => (
+                      <Cell key={entry.name} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ fontSize: 13, borderRadius: 8, border: '1px solid #e4e4e7' }}
+                    formatter={(value: number, name: string) => [value, name]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+
+        {/* Ocupacao por tipo de quarto (Stacked Bar) */}
+        <div className="bg-white rounded-xl border border-zinc-100 p-5">
+          <div className="flex items-center gap-2 mb-4">
             <BedDouble size={16} className="text-amber-500" />
             <p className="font-medium text-zinc-800 text-sm">Ocupacao por tipo de quarto</p>
           </div>
-          <div className="flex flex-col gap-4">
-            {Object.entries(roomTypes).map(([type, data]) => (
-              <div key={type} className="flex flex-col gap-2">
-                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide">{type}</p>
-                <ProgressBar label="Disponiveis" value={data.available} total={data.total} color="bg-green-400" />
-                <ProgressBar label="Ocupados" value={data.occupied} total={data.total} color="bg-blue-400" />
-                <ProgressBar label="Manutencao" value={data.maintenance} total={data.total} color="bg-yellow-400" />
-              </div>
-            ))}
-          </div>
-          <div className="border-t border-zinc-50 pt-3 flex justify-between text-sm text-zinc-500">
-            <span>Total de quartos</span>
-            <span className="font-medium text-zinc-800">{rooms.length}</span>
-          </div>
-        </div>
-
-        {/* Delivery status breakdown */}
-        <div className="bg-white rounded-xl border border-zinc-100 p-5 flex flex-col gap-4">
-          <div className="flex items-center gap-2">
-            <PackageCheck size={16} className="text-amber-500" />
-            <p className="font-medium text-zinc-800 text-sm">Status de entrega</p>
-          </div>
-          {totalItems === 0 ? (
-            <p className="text-sm text-zinc-400 py-4 text-center">Nenhum item consumido</p>
+          {roomChartData.length === 0 ? (
+            <p className="text-sm text-zinc-400 py-8 text-center">Nenhum quarto cadastrado</p>
           ) : (
-            <div className="flex flex-col gap-3">
-              <ProgressBar label="Entregues" value={deliveredItems} total={totalItems} color="bg-green-400" />
-              <ProgressBar label="Pendentes" value={pendingItems} total={totalItems} color="bg-yellow-400" />
-              <ProgressBar label="Cancelados" value={cancelledItems} total={totalItems} color="bg-red-400" />
-            </div>
-          )}
-          <div className="border-t border-zinc-50 pt-3 flex justify-between text-sm text-zinc-500">
-            <span>Total de itens</span>
-            <span className="font-medium text-zinc-800">{totalItems}</span>
-          </div>
-        </div>
-
-        {/* Atividades de hoje */}
-        <div className="bg-white rounded-xl border border-zinc-100 p-5 flex flex-col gap-4">
-          <div className="flex items-center gap-2">
-            <CalendarCheck size={16} className="text-amber-500" />
-            <p className="font-medium text-zinc-800 text-sm">Atividades de hoje</p>
-          </div>
-          {todayCheckins.length === 0 && todayCheckouts.length === 0 ? (
-            <p className="text-sm text-zinc-400 py-4 text-center">Nenhuma atividade prevista para hoje</p>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {todayCheckins.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <p className="text-xs font-medium text-green-600 uppercase tracking-wide flex items-center gap-1.5">
-                    <LogIn size={12} /> Check-ins ({todayCheckins.length})
-                  </p>
-                  {todayCheckins.map((b, i) => (
-                    <div key={i} className="flex items-center justify-between text-sm bg-green-50 rounded-lg px-3 py-2">
-                      <span className="text-zinc-700">{formatDate(b.checkInDate)} → {formatDate(b.checkOutDate)}</span>
-                      <span className="text-xs font-medium text-green-700">R$ {b.dailyRate?.toFixed(2)}/dia</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {todayCheckouts.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <p className="text-xs font-medium text-blue-600 uppercase tracking-wide flex items-center gap-1.5">
-                    <LogIn size={12} className="rotate-180" /> Check-outs ({todayCheckouts.length})
-                  </p>
-                  {todayCheckouts.map((b, i) => (
-                    <div key={i} className="flex items-center justify-between text-sm bg-blue-50 rounded-lg px-3 py-2">
-                      <span className="text-zinc-700">{formatDate(b.checkInDate)} → {formatDate(b.checkOutDate)}</span>
-                      <span className="text-xs font-medium text-blue-700">R$ {b.dailyRate?.toFixed(2)}/dia</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={roomChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#a1a1aa' }} />
+                <YAxis tick={{ fontSize: 12, fill: '#a1a1aa' }} />
+                <Tooltip contentStyle={{ fontSize: 13, borderRadius: 8, border: '1px solid #e4e4e7' }} />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Bar dataKey="Disponiveis" name="Disponiveis" stackId="a" fill="#365943" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="Ocupados" name="Ocupados" stackId="a" fill="#FFBA00" />
+                <Bar dataKey="Manutencao" name="Manutencao" stackId="a" fill="#EF4444" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           )}
         </div>
 
-        {/* Produtos mais pedidos */}
-        <div className="bg-white rounded-xl border border-zinc-100 p-5 flex flex-col gap-4">
-          <div className="flex items-center gap-2">
+        {/* Produtos mais pedidos (Horizontal Bar) */}
+        <div className="bg-white rounded-xl border border-zinc-100 p-5">
+          <div className="flex items-center gap-2 mb-4">
             <ShoppingBasket size={16} className="text-amber-500" />
             <p className="font-medium text-zinc-800 text-sm">Produtos mais pedidos</p>
           </div>
           {topProducts.length === 0 ? (
-            <p className="text-sm text-zinc-400 py-4 text-center">Nenhum consumo registrado</p>
+            <p className="text-sm text-zinc-400 py-8 text-center">Nenhum consumo registrado</p>
           ) : (
-            <div className="flex flex-col gap-2">
-              {topProducts.map((p, i) => {
-                const maxQty = topProducts[0].qty
-                const pct = Math.round((p.qty / maxQty) * 100)
-                return (
-                  <div key={p.name} className="flex items-center gap-3">
-                    <span className="text-xs font-medium text-zinc-400 w-5 text-right">{i + 1}</span>
-                    <div className="flex-1 flex items-center gap-3">
-                      <span className="text-sm text-zinc-700 min-w-0 truncate flex-1">{p.name}</span>
-                      <span className="text-xs text-zinc-400 w-16 text-right">{p.qty} un.</span>
-                      <div className="w-20 h-1.5 bg-zinc-100 rounded-full overflow-hidden shrink-0">
-                        <div className="h-full rounded-full bg-amber-400" style={{ width: `${pct}%` }} />
-                      </div>
+            <ResponsiveContainer width="100%" height={Math.max(200, topProducts.length * 36)}>
+              <BarChart data={topProducts} layout="vertical" margin={{ left: 10, right: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 12, fill: '#a1a1aa' }} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fill: '#71717a' }} width={110} />
+                <Tooltip
+                  contentStyle={{ fontSize: 13, borderRadius: 8, border: '1px solid #e4e4e7' }}
+                  formatter={(value: number) => [`${value} un.`, undefined]}
+                />
+                <Bar dataKey="qty" name="Quantidade" fill="#D75103" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* Status de entrega */}
+        {totalItems > 0 ? (
+          <div className="bg-white rounded-xl border border-zinc-100 p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <PackageCheck size={16} className="text-amber-500" />
+              <p className="font-medium text-zinc-800 text-sm">Status de entrega</p>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-green-50 rounded-xl p-4 flex flex-col items-center gap-1.5">
+                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                  <Check size={16} className="text-green-600" />
+                </div>
+                <p className="text-2xl font-bold text-green-700">{deliveredItems}</p>
+                <p className="text-xs font-medium text-green-600">Entregues</p>
+                <p className="text-[10px] text-green-500">{totalItems > 0 ? Math.round((deliveredItems / totalItems) * 100) : 0}% do total</p>
+              </div>
+              <div className="bg-yellow-50 rounded-xl p-4 flex flex-col items-center gap-1.5">
+                <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center">
+                  <AlertCircle size={16} className="text-yellow-600" />
+                </div>
+                <p className="text-2xl font-bold text-yellow-700">{pendingItems}</p>
+                <p className="text-xs font-medium text-yellow-600">Pendentes</p>
+                <p className="text-[10px] text-yellow-500">{totalItems > 0 ? Math.round((pendingItems / totalItems) * 100) : 0}% do total</p>
+              </div>
+              <div className="bg-red-50 rounded-xl p-4 flex flex-col items-center gap-1.5">
+                <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                  <X size={16} className="text-red-500" />
+                </div>
+                <p className="text-2xl font-bold text-red-600">{cancelledItems}</p>
+                <p className="text-xs font-medium text-red-500">Cancelados</p>
+                <p className="text-[10px] text-red-400">{totalItems > 0 ? Math.round((cancelledItems / totalItems) * 100) : 0}% do total</p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl border border-zinc-100 p-5 flex items-center justify-center">
+            <p className="text-sm text-zinc-400">Nenhum consumo registrado</p>
+          </div>
+        )}
+
+      </div>
+
+      {/* Atividades de hoje (full width) */}
+      <div className="bg-white rounded-xl border border-zinc-100 p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <CalendarCheck size={16} className="text-amber-500" />
+          <p className="font-medium text-zinc-800 text-sm">Atividades de hoje</p>
+        </div>
+        {todayCheckins.length === 0 && todayCheckouts.length === 0 ? (
+          <p className="text-sm text-zinc-400 py-8 text-center">Nenhuma atividade prevista para hoje</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {todayCheckins.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <p className="text-xs font-semibold text-green-700 uppercase tracking-wide flex items-center gap-1.5 mb-1">
+                  <LogIn size={14} /> Check-ins ({todayCheckins.length})
+                </p>
+                {todayCheckins.map((b, i) => (
+                  <div key={i} className="border-l-4 border-l-green-500 bg-green-50/60 rounded-r-xl px-4 py-3 flex items-center justify-between">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-sm font-medium text-zinc-800">{formatDate(b.checkInDate)} → {formatDate(b.checkOutDate)}</span>
+                      <span className="text-xs text-green-600 font-medium">R$ {b.dailyRate?.toFixed(2)}/dia</span>
                     </div>
                   </div>
-                )
-              })}
-            </div>
-          )}
-          {allConsumptions.length > 0 && (
-            <div className="border-t border-zinc-50 pt-3 flex justify-between text-sm text-zinc-500">
-              <span>Valor total em consumos</span>
-              <span className="font-medium text-zinc-800">
-                R$ {allConsumptions.reduce((sum, c) => sum + (c.unitPrice ?? 0) * (c.quantity ?? 0), 0).toFixed(2)}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Status de reservas */}
-        <div className="bg-white rounded-xl border border-zinc-100 p-5 flex flex-col gap-4">
-          <div className="flex items-center gap-2">
-            <TrendingUp size={16} className="text-amber-500" />
-            <p className="font-medium text-zinc-800 text-sm">Status de reservas</p>
-          </div>
-          <div className="flex flex-col gap-3">
-            <ProgressBar label="Pendentes" value={bookingsPending} total={bookings.length} color="bg-yellow-400" />
-            <ProgressBar label="Confirmadas" value={bookingsConfirmed} total={bookings.length} color="bg-green-400" />
-            <ProgressBar label="Check-in" value={bookingsCheckin} total={bookings.length} color="bg-blue-400" />
-            <ProgressBar label="Check-out" value={bookingsCheckout} total={bookings.length} color="bg-zinc-400" />
-            <ProgressBar label="Canceladas" value={bookingsCancelled} total={bookings.length} color="bg-red-400" />
-          </div>
-          <div className="border-t border-zinc-50 pt-3 flex justify-between text-sm text-zinc-500">
-            <span>Total de reservas</span>
-            <span className="font-medium text-zinc-800">{bookings.length}</span>
-          </div>
-        </div>
-
-        {/* Ultimas reservas */}
-        <div className="bg-white rounded-xl border border-zinc-100 p-5 flex flex-col gap-4">
-          <div className="flex items-center gap-2">
-            <CalendarCheck size={16} className="text-amber-500" />
-            <p className="font-medium text-zinc-800 text-sm">Ultimas reservas</p>
-          </div>
-          {recentBookings.length === 0 ? (
-            <p className="text-sm text-zinc-400 py-4 text-center">Nenhuma reserva cadastrada</p>
-          ) : (
-            <div className="flex flex-col divide-y divide-zinc-50">
-              {recentBookings.map((b, i) => {
-                const status = bookingStatusConfig[b.status ?? ''] ?? { label: b.status, color: 'bg-zinc-100 text-zinc-500' }
-                return (
-                  <div key={i} className="flex items-center justify-between py-2.5">
+                ))}
+              </div>
+            )}
+            {todayCheckouts.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide flex items-center gap-1.5 mb-1">
+                  <LogIn size={14} className="rotate-180" /> Check-outs ({todayCheckouts.length})
+                </p>
+                {todayCheckouts.map((b, i) => (
+                  <div key={i} className="border-l-4 border-l-blue-500 bg-blue-50/60 rounded-r-xl px-4 py-3 flex items-center justify-between">
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-sm font-medium text-zinc-700">
-                        {formatDate(b.checkInDate)} → {formatDate(b.checkOutDate)}
-                      </span>
-                      <span className="text-xs text-zinc-400">
-                        R$ {b.dailyRate?.toFixed(2)}/dia
-                      </span>
+                      <span className="text-sm font-medium text-zinc-800">{formatDate(b.checkInDate)} → {formatDate(b.checkOutDate)}</span>
+                      <span className="text-xs text-blue-600 font-medium">R$ {b.dailyRate?.toFixed(2)}/dia</span>
                     </div>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${status.color}`}>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Ultimas reservas (full width) */}
+      <div className="bg-white rounded-xl border border-zinc-100 p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <CalendarCheck size={16} className="text-amber-500" />
+          <p className="font-medium text-zinc-800 text-sm">Ultimas reservas</p>
+        </div>
+        {recentBookings.length === 0 ? (
+          <p className="text-sm text-zinc-400 py-8 text-center">Nenhuma reserva cadastrada</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            {recentBookings.map((b, i) => {
+              const status = bookingStatusConfig[b.status ?? ''] ?? { label: b.status, color: 'bg-zinc-100 text-zinc-500', border: 'border-l-zinc-400' }
+              return (
+                <div key={i} className={`border-l-4 ${status.border} bg-white rounded-xl border border-zinc-100 px-4 py-3 flex flex-col gap-1.5`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">
+                      Reserva #{recentBookings.length - i}
+                    </span>
+                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${status.color}`}>
                       {status.label}
                     </span>
                   </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-sm font-medium text-zinc-800">
+                      {formatDate(b.checkInDate)}
+                    </span>
+                    <span className="text-xs text-zinc-400">
+                      ate {formatDate(b.checkOutDate)}
+                    </span>
+                  </div>
+                  <p className="text-xs font-semibold text-zinc-700 mt-1">
+                    R$ {b.dailyRate?.toFixed(2)} <span className="font-normal text-zinc-400">/dia</span>
+                  </p>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )

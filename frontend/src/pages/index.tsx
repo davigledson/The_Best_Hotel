@@ -12,10 +12,6 @@ export { Funcionarios } from './admin/Funcionarios.tsx'
 
 export { Produtos } from './admin/Produtos.tsx'
 
-export function Relatorios() {
-  return <div className="text-zinc-800 text-xl font-medium">Relatorios</div>
-}
-
 export { Usuarios } from './admin/Usuarios.tsx'
 
 export { Reservas } from './admin/Reservas.tsx'

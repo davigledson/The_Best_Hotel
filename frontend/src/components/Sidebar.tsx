@@ -8,7 +8,6 @@ import {
   Users,
   UserCog,
   ShoppingBasket,
-  BarChart2,
   ShieldCheck,
   ChevronLeft,
   ChevronRight,
@@ -27,7 +26,6 @@ const navItems = [
   { label: 'Clientes', icon: Users, to: '/admin/clientes' },
   { label: 'Funcionarios', icon: UserCog, to: '/admin/funcionarios' },
   { label: 'Produtos', icon: ShoppingBasket, to: '/admin/produtos' },
-  { label: 'Relatorios', icon: BarChart2, to: '/admin/relatorios' },
   { label: 'Usuarios', icon: ShieldCheck, to: '/admin/usuarios' },
 ]
 

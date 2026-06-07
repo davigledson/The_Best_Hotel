@@ -12,7 +12,6 @@ import {
   Clientes,
   Funcionarios,
   Produtos,
-  Relatorios,
   Usuarios,
   Estadias,
 } from './pages'
@@ -44,7 +43,6 @@ export const router = createBrowserRouter([
       { path: 'funcionarios', element: <Funcionarios /> },
       { path: 'produtos', element: <Produtos /> },
       { path: 'estadias', element: <Estadias /> },
-      { path: 'relatorios', element: <Relatorios /> },
       { path: 'usuarios', element: <Usuarios /> },
     ],
   },
