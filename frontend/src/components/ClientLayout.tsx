@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { Outlet, NavLink } from 'react-router-dom'
-import { CalendarCheck, BedDouble, UtensilsCrossed, ChevronLeft, ChevronRight, DoorOpen } from 'lucide-react'
+import { ShoppingCart, CalendarCheck, BedDouble, UtensilsCrossed, ChevronLeft, ChevronRight, DoorOpen } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import miniLogo from '../assets/mini-logo.svg'
 
 const navItems = [
-  { label: 'Minhas Reservas', icon: CalendarCheck, to: '/client/bookings' },
+  { label: 'Reservar Quartos', icon: ShoppingCart, to: '/client/bookings' },
+  { label: 'Minhas Reservas', icon: CalendarCheck, to: '/client/my-reservations' },
   { label: 'Minha Estadia', icon: BedDouble, to: '/client/stay' },
   { label: 'Consumos', icon: UtensilsCrossed, to: '/client/consumos' },
 ]

@@ -16,6 +16,7 @@ import {
   Estadias,
 } from './pages'
 import { MyBookings } from './pages/client/MyBookings'
+import { MyReservations } from './pages/client/MyReservations'
 import { MyStay } from './pages/client/MyStay'
 import { ClientHome } from './pages/client/ClientHome'
 import { Consumos } from './pages/client/Consumos'
@@ -73,6 +74,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <ClientHome /> },
       { path: 'bookings', element: <MyBookings /> },
+      { path: 'my-reservations', element: <MyReservations /> },
       { path: 'stay', element: <MyStay /> },
       { path: 'consumos', element: <Consumos /> },
     ],
