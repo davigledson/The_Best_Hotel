@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { Plus, X, CalendarCheck, Hotel, AlertTriangle } from 'lucide-react'
 import {
@@ -9,6 +9,20 @@ import {
 import { useFindAll1 } from '../../services/room-controller/room-controller'
 import { customInstance } from '../../lib/axios'
 import type { Booking } from '../../services/openAPIDefinition.schemas'
+
+interface ConflictDetail {
+  bookingId: string
+  checkInDate: string
+  checkOutDate: string
+  roomNumbers: string
+  status: string
+}
+
+interface ConflictData {
+  type: 'BLOCKING' | 'PENDING'
+  message: string
+  conflicts: ConflictDetail[]
+}
 
 const statusLabel: Record<string, string> = {
   PENDING: 'Pendente',
@@ -70,6 +84,9 @@ export function MyBookings() {
   const [modalCancel, setModalCancel] = useState<Booking | null>(null)
   const [cancelReason, setCancelReason] = useState('')
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [warningMessage, setWarningMessage] = useState<string | null>(null)
+  const [createConflictData, setCreateConflictData] = useState<ConflictData | null>(null)
+  const lastCreateData = useRef<any>(null)
 
   const [form, setForm] = useState({
     selectedRooms: [] as { roomId: string; numberOfGuests: number }[],
@@ -90,7 +107,7 @@ export function MyBookings() {
 
   if (form.checkInDate && form.checkOutDate) {
     for (const b of allBookings) {
-      if (!b.checkInDate || !b.checkOutDate || b.status === 'CANCELLED' || b.status === 'CHECKOUT') continue
+      if (!b.checkInDate || !b.checkOutDate || b.status === 'CANCELLED' || b.status === 'CHECKOUT' || b.status === 'PENDING') continue
       if (form.checkInDate >= b.checkOutDate || form.checkOutDate <= b.checkInDate) continue
       const roomIds = b.rooms?.map((r) => getRoomId(r.roomId)) ?? []
       roomIds.forEach((id) => conflictRoomIds.add(id))
@@ -103,11 +120,23 @@ export function MyBookings() {
 
   const createMutation = useCreate5({
     mutation: {
-      onSuccess: () => {
+      onSuccess: (data) => {
         invalidate()
-        setModalCreate(false)
-        setForm({ selectedRooms: [] as { roomId: string; numberOfGuests: number }[], checkInDate: '', checkOutDate: '' })
-        setSubmitError(null)
+        setCreateConflictData(null)
+        const msg = (data as any)?.warningMessage
+        if (msg) {
+          setWarningMessage(msg)
+        } else {
+          setModalCreate(false)
+          setForm({ selectedRooms: [] as { roomId: string; numberOfGuests: number }[], checkInDate: '', checkOutDate: '' })
+          setSubmitError(null)
+        }
+      },
+      onError: (error) => {
+        const data = (error as any)?.response?.data as ConflictData | undefined
+        if (data?.type === 'BLOCKING' || data?.type === 'PENDING') {
+          setCreateConflictData(data)
+        }
       },
     },
   })
@@ -134,20 +163,22 @@ export function MyBookings() {
       return { roomId: sr.roomId as any, dailyRate: room?.dailyRate, numberOfGuests: sr.numberOfGuests }
     })
     const advancePayment = roomsPayload.reduce((s: number, r: any) => s + (r.dailyRate ?? 0), 0)
-    createMutation.mutate({
-      data: {
-        rooms: roomsPayload as any,
-        checkInDate: form.checkInDate as any,
-        checkOutDate: form.checkOutDate as any,
-        advancePayment,
-        guests: [],
-      },
-    })
+    const bookingData = {
+      rooms: roomsPayload as any,
+      checkInDate: form.checkInDate as any,
+      checkOutDate: form.checkOutDate as any,
+      advancePayment,
+      guests: [],
+    }
+    lastCreateData.current = bookingData
+    createMutation.mutate({ data: bookingData })
   }
 
-  const mutationError = createMutation.error
-    ? (createMutation.error as any)?.response?.data?.message ?? (createMutation.error as any)?.message ?? 'Erro ao criar reserva'
-    : null
+  const createErrData = (createMutation.error as any)?.response?.data as ConflictData | undefined
+  const isCreateConflict = createErrData?.type === 'BLOCKING' || createErrData?.type === 'PENDING'
+  const mutationError = isCreateConflict
+    ? null
+    : (createMutation.error as any)?.response?.data?.message ?? (createMutation.error as any)?.message ?? null
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -232,12 +263,22 @@ export function MyBookings() {
       )}
 
       {/* Modal nova reserva */}
-      <Modal open={modalCreate} title="Nova reserva" onClose={() => { setModalCreate(false); setSubmitError(null) }}>
+      <Modal open={modalCreate} title="Nova reserva" onClose={() => { setModalCreate(false); setSubmitError(null); setWarningMessage(null); setCreateConflictData(null) }}>
         <form onSubmit={handleCreate} className="flex flex-col gap-4">
 
           {(submitError || mutationError) && (
             <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
               {submitError || mutationError}
+            </div>
+          )}
+
+          {warningMessage && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-700 text-sm px-4 py-3 rounded-lg flex items-start gap-2">
+              <span className="flex-1">{warningMessage}</span>
+              <button type="button" onClick={() => { setWarningMessage(null); setModalCreate(false) }}
+                className="text-amber-500 hover:text-amber-700 font-medium text-xs whitespace-nowrap">
+                Fechar
+              </button>
             </div>
           )}
 
@@ -330,6 +371,59 @@ export function MyBookings() {
             {createMutation.isPending ? 'Reservando...' : 'Confirmar reserva'}
           </button>
         </form>
+      </Modal>
+
+      {/* Modal conflito */}
+      <Modal open={!!createConflictData} title="Conflitos encontrados" onClose={() => { setCreateConflictData(null); lastCreateData.current = null; createMutation.reset() }}>
+        {createConflictData && (
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-zinc-600">{createConflictData.message}</p>
+            <div className="overflow-x-auto border border-zinc-200 rounded-lg">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-zinc-50 border-b border-zinc-100">
+                    <th className="text-left px-3 py-2 font-medium text-zinc-500">Quarto(s)</th>
+                    <th className="text-left px-3 py-2 font-medium text-zinc-500">Check-in</th>
+                    <th className="text-left px-3 py-2 font-medium text-zinc-500">Check-out</th>
+                    <th className="text-left px-3 py-2 font-medium text-zinc-500">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {createConflictData.conflicts.map((c) => (
+                    <tr key={c.bookingId} className="border-b border-zinc-50">
+                      <td className="px-3 py-2 text-zinc-800">{c.roomNumbers || '—'}</td>
+                      <td className="px-3 py-2 text-zinc-600">{String(c.checkInDate)}</td>
+                      <td className="px-3 py-2 text-zinc-600">{String(c.checkOutDate)}</td>
+                      <td className="px-3 py-2">
+                        <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${statusClass[c.status] ?? 'bg-zinc-100 text-zinc-500'}`}>
+                          {statusLabel[c.status] ?? c.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => { setCreateConflictData(null); lastCreateData.current = null; createMutation.reset() }}
+                className="px-4 py-2 text-sm text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors">
+                Voltar
+              </button>
+              {createConflictData.type === 'PENDING' && (
+                <button onClick={() => {
+                  if (lastCreateData.current) {
+                    createMutation.mutate({ data: { ...lastCreateData.current, confirmCancelPending: true } })
+                  }
+                  setCreateConflictData(null)
+                }}
+                  disabled={createMutation.isPending}
+                  className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-50 rounded-lg transition-colors">
+                  {createMutation.isPending ? 'Processando...' : 'Sim, cancelar e prosseguir'}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* Modal cancelar */}

@@ -397,24 +397,25 @@ export const getFindByStatus2QueryKey = (status?: 'PENDING' | 'CONFIRMED' | 'CAN
     ] as const;
     }
 
-    
 export const approve = (
     id: string,
+    data?: Record<string, unknown>,
  signal?: AbortSignal
 ) => {
       
       
       return customInstance<Booking>(
-      {url: `/bookings/${id}/approve`, method: 'POST', signal
+      {url: `/bookings/${id}/approve`, method: 'POST', data, signal
     },
       );
     }
   
 
+export type ApproveVariables = {id: string; data?: Record<string, unknown>}
 
 export const getApproveMutationOptions = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approve>>, TError,{id: string}, TContext>, }
-): UseMutationOptions<Awaited<ReturnType<typeof approve>>, TError,{id: string}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approve>>, TError,ApproveVariables, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof approve>>, TError,ApproveVariables, TContext> => {
 
 const mutationKey = ['approve'];
 const {mutation: mutationOptions} = options ?
@@ -426,10 +427,10 @@ const {mutation: mutationOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approve>>, {id: string}> = (props) => {
-          const {id} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approve>>, ApproveVariables> = (props) => {
+          const {id, data} = props ?? {};
 
-          return  approve(id,)
+          return  approve(id, data,)
         }
 
         
@@ -441,11 +442,11 @@ const {mutation: mutationOptions} = options ?
     export type ApproveMutationError = unknown
 
     export const useApprove = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approve>>, TError,{id: string}, TContext>, }
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approve>>, TError,ApproveVariables, TContext>, }
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof approve>>,
         TError,
-        {id: string},
+        ApproveVariables,
         TContext
       > => {
 

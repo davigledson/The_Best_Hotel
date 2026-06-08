@@ -40,7 +40,7 @@ public class SecurityConfig {
                         .requestMatchers("/stays/*/checkout").hasAnyRole("ADMIN", "EMPLOYEE")
                         .requestMatchers("/stays/*/consumptions").hasAnyRole("ADMIN", "EMPLOYEE", "CLIENT")
                         .requestMatchers("/stays/*/consumptions/*").hasAnyRole("ADMIN", "EMPLOYEE", "CLIENT")
-                        .requestMatchers("/bookings/*/cancel").hasAnyRole("ADMIN", "EMPLOYEE")
+                        .requestMatchers("/bookings/*/cancel").hasAnyRole("ADMIN", "EMPLOYEE", "CLIENT")
                         .requestMatchers("/bookings/*/approve").hasAnyRole("ADMIN", "EMPLOYEE")
 
                         .requestMatchers(HttpMethod.POST, "/bookings").hasAnyRole("ADMIN", "EMPLOYEE", "CLIENT")

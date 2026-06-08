@@ -3,6 +3,7 @@ package com.the.best.hotel.theBestHotel.model;
 import lombok.Data;
 import org.bson.types.ObjectId;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.mongodb.core.mapping.Document;
 import tools.jackson.databind.annotation.JsonSerialize;
 import tools.jackson.databind.ser.std.ToStringSerializer;
@@ -36,6 +37,12 @@ public class Booking {
     private LocalDateTime createdAt;
 
     private Boolean checkinRequested = false;
+
+    @Transient
+    private String warningMessage;
+
+    @Transient
+    private Boolean confirmCancelPending;
 
     @Data
     public static class BookedRoom {

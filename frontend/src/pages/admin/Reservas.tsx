@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Plus, X, Search, Calendar, BedDouble, Users, ChevronDown, Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
@@ -12,6 +12,20 @@ import { useFindAll1 } from '../../services/room-controller/room-controller'
 import { useFindAll4 } from '../../services/client-controller/client-controller'
 import type { Booking, BookingStatus } from '../../services/openAPIDefinition.schemas'
 import { useAuth } from '../../contexts/AuthContext'
+
+interface ConflictDetail {
+  bookingId: string
+  checkInDate: string
+  checkOutDate: string
+  roomNumbers: string
+  status: string
+}
+
+interface ConflictData {
+  type: 'BLOCKING' | 'PENDING'
+  message: string
+  conflicts: ConflictDetail[]
+}
 
 const PAGE_SIZE = 20
 
@@ -69,9 +83,11 @@ interface BookingFormProps {
   onSubmit: (data: Booking) => void
   loading: boolean
   error: string | null
+  warningMessage: string | null
+  onDismissWarning: () => void
 }
 
-function BookingForm({ onSubmit, loading, error }: BookingFormProps) {
+function BookingForm({ onSubmit, loading, error, warningMessage, onDismissWarning }: BookingFormProps) {
   const { data: rooms = [] } = useFindAll1()
   const { data: clients = [] } = useFindAll4()
   const { data: bookings = [] } = useFindAll5()
@@ -85,7 +101,7 @@ function BookingForm({ onSubmit, loading, error }: BookingFormProps) {
 
   if (checkInDate && checkOutDate) {
     for (const b of bookings) {
-      if (!b.checkInDate || !b.checkOutDate || b.status === 'CANCELLED' || b.status === 'CHECKOUT') continue
+      if (!b.checkInDate || !b.checkOutDate || b.status === 'CANCELLED' || b.status === 'CHECKOUT' || b.status === 'PENDING') continue
       if (checkInDate >= b.checkOutDate || checkOutDate <= b.checkInDate) continue
       const roomIds = b.rooms?.map((r) => getRoomId(r.roomId)) ?? []
       roomIds.forEach((id) => conflictRoomIds.add(id))
@@ -137,6 +153,15 @@ function BookingForm({ onSubmit, loading, error }: BookingFormProps) {
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
           {error}
+        </div>
+      )}
+
+      {warningMessage && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-700 text-sm px-4 py-3 rounded-lg flex items-start gap-2">
+          <span className="flex-1">{warningMessage}</span>
+          <button type="button" onClick={onDismissWarning} className="text-amber-500 hover:text-amber-700 font-medium text-xs whitespace-nowrap">
+            Fechar
+          </button>
         </div>
       )}
 
@@ -225,6 +250,11 @@ export function Reservas() {
   const [modalCreate, setModalCreate] = useState(false)
   const [confirmCancel, setConfirmCancel] = useState<Booking | null>(null)
   const [confirmApprove, setConfirmApprove] = useState<Booking | null>(null)
+  const [warningMessage, setWarningMessage] = useState<string | null>(null)
+  const [createConflictData, setCreateConflictData] = useState<ConflictData | null>(null)
+  const [approveConflictData, setApproveConflictData] = useState<ConflictData | null>(null)
+  const lastCreateData = useRef<any>(null)
+  const lastApproveId = useRef<string | null>(null)
 
   const { data: bookings = [], isLoading } = useFindAll5()
   const { data: rooms = [] } = useFindAll1()
@@ -234,7 +264,24 @@ export function Reservas() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getFindAll5QueryKey() })
 
   const createMutation = useCreate5({
-    mutation: { onSuccess: () => { invalidate(); setModalCreate(false) } },
+    mutation: {
+      onSuccess: (data) => {
+        invalidate()
+        setCreateConflictData(null)
+        const msg = (data as any)?.warningMessage
+        if (msg) {
+          setWarningMessage(msg)
+        } else {
+          setModalCreate(false)
+        }
+      },
+      onError: (error) => {
+        const data = (error as any)?.response?.data as ConflictData | undefined
+        if (data?.type === 'BLOCKING' || data?.type === 'PENDING') {
+          setCreateConflictData(data)
+        }
+      },
+    },
   })
 
   const cancelMutation = useCancel({
@@ -242,7 +289,15 @@ export function Reservas() {
   })
 
   const approveMutation = useApprove({
-    mutation: { onSuccess: () => { invalidate(); setConfirmApprove(null) } },
+    mutation: {
+      onSuccess: () => { invalidate(); setConfirmApprove(null); setApproveConflictData(null) },
+      onError: (error) => {
+        const data = (error as any)?.response?.data as ConflictData | undefined
+        if (data?.type === 'BLOCKING' || data?.type === 'PENDING') {
+          setApproveConflictData(data)
+        }
+      },
+    },
   })
 
   const getRoomNumbers = (booking: Booking) => {
@@ -272,6 +327,16 @@ export function Reservas() {
     acc[key] = bookings.filter((b) => b.status === key).length
     return acc
   }, {} as Record<string, number>)
+
+  const getErrorMsg = (err: unknown) =>
+    (err as any)?.response?.data?.message ?? (err as any)?.message ?? null
+
+  const createErrData = (createMutation.error as any)?.response?.data as ConflictData | undefined
+  const isCreateConflict = createErrData?.type === 'BLOCKING' || createErrData?.type === 'PENDING'
+  const createFormError = isCreateConflict ? null : getErrorMsg(createMutation.error)
+
+  const approveErrData = (approveMutation.error as any)?.response?.data as ConflictData | undefined
+  const isApproveConflict = approveErrData?.type === 'BLOCKING' || approveErrData?.type === 'PENDING'
 
   return (
     <div className="flex flex-col gap-6">
@@ -397,11 +462,13 @@ export function Reservas() {
       )}
 
       {/* Modal criar */}
-      <Modal open={modalCreate} title="Nova reserva" onClose={() => { setModalCreate(false); createMutation.reset() }}>
+      <Modal open={modalCreate} title="Nova reserva" onClose={() => { setModalCreate(false); setWarningMessage(null); setCreateConflictData(null); createMutation.reset() }}>
         <BookingForm
           loading={createMutation.isPending}
-          error={createMutation.error ? (createMutation.error as any)?.response?.data?.message ?? (createMutation.error as any)?.message ?? 'Erro ao criar reserva' : null}
-          onSubmit={(data) => createMutation.mutate({ data })}
+          error={createFormError}
+          warningMessage={warningMessage}
+          onDismissWarning={() => { setWarningMessage(null); setModalCreate(false) }}
+          onSubmit={(data) => { lastCreateData.current = data; createMutation.mutate({ data }) }}
         />
       </Modal>
 
@@ -447,11 +514,115 @@ export function Reservas() {
                 Voltar
               </button>
               <button
-                onClick={() => approveMutation.mutate({ id: getId(confirmApprove) })}
+                onClick={() => { lastApproveId.current = getId(confirmApprove); approveMutation.mutate({ id: getId(confirmApprove) }) }}
                 disabled={approveMutation.isPending}
                 className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 rounded-lg transition-colors">
                 {approveMutation.isPending ? 'Aprovando...' : 'Confirmar aprovacao'}
               </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Modal conflito (criação) */}
+      <Modal open={!!createConflictData} title="Conflitos encontrados" onClose={() => { setCreateConflictData(null); lastCreateData.current = null; createMutation.reset() }}>
+        {createConflictData && (
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-zinc-600">{createConflictData.message}</p>
+            <div className="overflow-x-auto border border-zinc-200 rounded-lg">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-zinc-50 border-b border-zinc-100">
+                    <th className="text-left px-3 py-2 font-medium text-zinc-500">Quarto(s)</th>
+                    <th className="text-left px-3 py-2 font-medium text-zinc-500">Check-in</th>
+                    <th className="text-left px-3 py-2 font-medium text-zinc-500">Check-out</th>
+                    <th className="text-left px-3 py-2 font-medium text-zinc-500">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {createConflictData.conflicts.map((c) => (
+                    <tr key={c.bookingId} className="border-b border-zinc-50">
+                      <td className="px-3 py-2 text-zinc-800">{c.roomNumbers || '—'}</td>
+                      <td className="px-3 py-2 text-zinc-600">{formatDate(c.checkInDate)}</td>
+                      <td className="px-3 py-2 text-zinc-600">{formatDate(c.checkOutDate)}</td>
+                      <td className="px-3 py-2">
+                        <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${statusConfig[c.status]?.color ?? 'bg-zinc-100 text-zinc-500'}`}>
+                          {statusConfig[c.status]?.label ?? c.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => { setCreateConflictData(null); lastCreateData.current = null; createMutation.reset() }}
+                className="px-4 py-2 text-sm text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors">
+                Voltar
+              </button>
+              {createConflictData.type === 'PENDING' && (
+                <button onClick={() => {
+                  if (lastCreateData.current) {
+                    createMutation.mutate({ data: { ...lastCreateData.current, confirmCancelPending: true } })
+                  }
+                  setCreateConflictData(null)
+                }}
+                  disabled={createMutation.isPending}
+                  className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-50 rounded-lg transition-colors">
+                  {createMutation.isPending ? 'Processando...' : 'Sim, cancelar e prosseguir'}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Modal conflito (aprovação) */}
+      <Modal open={!!approveConflictData} title="Conflitos encontrados" onClose={() => { setApproveConflictData(null) }}>
+        {approveConflictData && (
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-zinc-600">{approveConflictData.message}</p>
+            <div className="overflow-x-auto border border-zinc-200 rounded-lg">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-zinc-50 border-b border-zinc-100">
+                    <th className="text-left px-3 py-2 font-medium text-zinc-500">Quarto(s)</th>
+                    <th className="text-left px-3 py-2 font-medium text-zinc-500">Check-in</th>
+                    <th className="text-left px-3 py-2 font-medium text-zinc-500">Check-out</th>
+                    <th className="text-left px-3 py-2 font-medium text-zinc-500">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {approveConflictData.conflicts.map((c) => (
+                    <tr key={c.bookingId} className="border-b border-zinc-50">
+                      <td className="px-3 py-2 text-zinc-800">{c.roomNumbers || '—'}</td>
+                      <td className="px-3 py-2 text-zinc-600">{formatDate(c.checkInDate)}</td>
+                      <td className="px-3 py-2 text-zinc-600">{formatDate(c.checkOutDate)}</td>
+                      <td className="px-3 py-2">
+                        <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${statusConfig[c.status]?.color ?? 'bg-zinc-100 text-zinc-500'}`}>
+                          {statusConfig[c.status]?.label ?? c.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => { setApproveConflictData(null) }}
+                className="px-4 py-2 text-sm text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors">
+                Voltar
+              </button>
+              {approveConflictData.type === 'PENDING' && (
+                <button onClick={() => {
+                  if (lastApproveId.current) approveMutation.mutate({ id: lastApproveId.current, data: { confirmCancelPending: true } })
+                  setApproveConflictData(null)
+                }}
+                  disabled={approveMutation.isPending}
+                  className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-50 rounded-lg transition-colors">
+                  {approveMutation.isPending ? 'Processando...' : 'Sim, cancelar e aprovar'}
+                </button>
+              )}
             </div>
           </div>
         )}

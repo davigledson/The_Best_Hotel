@@ -15,6 +15,12 @@ public interface BookingRepository extends MongoRepository<Booking, ObjectId> {
     @Query("{ 'rooms.roomId': ?0, 'status': { $nin: ?1 } }")
     List<Booking> findByRoomsRoomIdAndStatusNotIn(ObjectId roomId, List<Booking.Status> statuses);
 
+    @Query("{ 'rooms.roomId': ?0, 'status': ?1 }")
+    List<Booking> findByRoomsRoomIdAndStatusEquals(ObjectId roomId, Booking.Status status);
+
+    @Query("{ 'guests.clientId': ?0, 'status': { $in: ?1 }, 'checkOutDate': { $gt: ?2 }, 'checkInDate': { $lt: ?3 } }")
+    List<Booking> findByGuestsClientIdAndStatusInAndDateOverlap(ObjectId clientId, List<Booking.Status> statuses, LocalDate checkIn, LocalDate checkOut);
+
     List<Booking> findByCheckInDateBetween(LocalDate start, LocalDate end);
 
     List<Booking> findByGuestsClientId(ObjectId clientId);

@@ -124,7 +124,7 @@ public class DataInitializer implements CommandLineRunner {
         seedProducts(250);
 
         seedFromNameList(20, User.Role.EMPLOYEE);
-        seedFromNameList(120, User.Role.CLIENT);
+        seedFromNameList(50, User.Role.CLIENT);
 
         createIfNotExists("admin@gmail.com", "admin123", User.Role.ADMIN);
         createIfNotExists(

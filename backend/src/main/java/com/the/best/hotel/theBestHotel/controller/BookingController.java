@@ -53,13 +53,14 @@ public class BookingController {
     }
 
     @PostMapping("/{id}/approve")
-    public ResponseEntity<Booking> approve(@PathVariable String id) {
-        return ResponseEntity.ok(bookingService.approve(new ObjectId(id)));
+    public ResponseEntity<Booking> approve(@PathVariable String id, @RequestBody(required = false) Map<String, Object> body) {
+        boolean confirmCancelPending = body != null && Boolean.TRUE.equals(body.get("confirmCancelPending"));
+        return ResponseEntity.ok(bookingService.approve(new ObjectId(id), confirmCancelPending));
     }
 
     @PostMapping("/{id}/cancel")
-    public ResponseEntity<Booking> cancel(@PathVariable String id, @RequestBody Map<String, String> body) {
-        String reason = body.getOrDefault("reason", "");
+    public ResponseEntity<Booking> cancel(@PathVariable String id, @RequestBody(required = false) Map<String, String> body) {
+        String reason = body != null ? body.getOrDefault("reason", "") : "";
         return ResponseEntity.ok(bookingService.cancel(new ObjectId(id), reason));
     }
 
