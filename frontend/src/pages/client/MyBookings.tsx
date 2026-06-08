@@ -4,6 +4,7 @@ import { Plus, X, CalendarCheck, Hotel, AlertTriangle } from 'lucide-react'
 import {
   useCreate5,
   useCancel,
+  useFindAll5,
 } from '../../services/booking-controller/booking-controller'
 import { useFindAll1 } from '../../services/room-controller/room-controller'
 import { customInstance } from '../../lib/axios'
@@ -56,14 +57,22 @@ const getId = (obj: any): string => {
   return ''
 }
 
+const getRoomId = (roomId: any): string => {
+  if (!roomId) return ''
+  if (typeof roomId === 'string') return roomId
+  if (roomId.$oid) return roomId.$oid
+  return String(roomId)
+}
+
 export function MyBookings() {
   const queryClient = useQueryClient()
   const [modalCreate, setModalCreate] = useState(false)
   const [modalCancel, setModalCancel] = useState<Booking | null>(null)
   const [cancelReason, setCancelReason] = useState('')
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const [form, setForm] = useState({
-    roomId: '',
+    selectedRooms: [] as { roomId: string; numberOfGuests: number }[],
     checkInDate: '',
     checkOutDate: '',
   })
@@ -75,8 +84,20 @@ export function MyBookings() {
     queryFn: () => customInstance<Booking[]>({ url: '/bookings/my', method: 'GET' }),
   })
   const { data: rooms = [] } = useFindAll1()
+  const { data: allBookings = [] } = useFindAll5()
 
-  const availableRooms = rooms.filter((r: any) => r.status === 'AVAILABLE')
+  const conflictRoomIds = new Set<string>()
+
+  if (form.checkInDate && form.checkOutDate) {
+    for (const b of allBookings) {
+      if (!b.checkInDate || !b.checkOutDate || b.status === 'CANCELLED' || b.status === 'CHECKOUT') continue
+      if (form.checkInDate >= b.checkOutDate || form.checkOutDate <= b.checkInDate) continue
+      const roomIds = b.rooms?.map((r) => getRoomId(r.roomId)) ?? []
+      roomIds.forEach((id) => conflictRoomIds.add(id))
+    }
+  }
+
+  const visibleRooms = rooms.filter((r: any) => r.status === 'AVAILABLE' && !conflictRoomIds.has(getRoomId(r.id)))
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: myBookingsKey })
 
@@ -85,7 +106,8 @@ export function MyBookings() {
       onSuccess: () => {
         invalidate()
         setModalCreate(false)
-        setForm({ roomId: '', checkInDate: '', checkOutDate: '' })
+        setForm({ selectedRooms: [] as { roomId: string; numberOfGuests: number }[], checkInDate: '', checkOutDate: '' })
+        setSubmitError(null)
       },
     },
   })
@@ -102,15 +124,30 @@ export function MyBookings() {
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault()
+    setSubmitError(null)
+    if (form.selectedRooms.length === 0) {
+      setSubmitError('Selecione pelo menos um quarto')
+      return
+    }
+    const roomsPayload = form.selectedRooms.map((sr) => {
+      const room = rooms.find((r: any) => getId(r) === sr.roomId)
+      return { roomId: sr.roomId as any, dailyRate: room?.dailyRate, numberOfGuests: sr.numberOfGuests }
+    })
+    const advancePayment = roomsPayload.reduce((s: number, r: any) => s + (r.dailyRate ?? 0), 0)
     createMutation.mutate({
       data: {
-        roomId: form.roomId as any,
+        rooms: roomsPayload as any,
         checkInDate: form.checkInDate as any,
         checkOutDate: form.checkOutDate as any,
+        advancePayment,
         guests: [],
       },
     })
   }
+
+  const mutationError = createMutation.error
+    ? (createMutation.error as any)?.response?.data?.message ?? (createMutation.error as any)?.message ?? 'Erro ao criar reserva'
+    : null
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -162,7 +199,7 @@ export function MyBookings() {
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-zinc-800">
-                        Quarto {getId({ id: booking.roomId })}
+                        {booking.rooms?.length ?? 1} quarto(s)
                       </span>
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusClass[booking.status ?? ''] ?? 'bg-zinc-100 text-zinc-500'}`}>
                         {statusLabel[booking.status ?? ''] ?? booking.status}
@@ -171,7 +208,7 @@ export function MyBookings() {
                     <div className="flex items-center gap-3 mt-1 text-xs text-zinc-400">
                       <span>Check-in: <span className="text-zinc-600">{String(booking.checkInDate)}</span></span>
                       <span>Check-out: <span className="text-zinc-600">{String(booking.checkOutDate)}</span></span>
-                      <span>Diaria: <span className="text-zinc-600 font-medium">R$ {booking.dailyRate?.toFixed(2)}</span></span>
+                      <span>Adto: <span className="text-zinc-600 font-medium">R$ {booking.advancePayment?.toFixed(2)}</span></span>
                     </div>
                     {booking.status === 'PENDING' && (
                       <p className="text-xs text-yellow-600 mt-1.5">
@@ -195,24 +232,14 @@ export function MyBookings() {
       )}
 
       {/* Modal nova reserva */}
-      <Modal open={modalCreate} title="Nova reserva" onClose={() => setModalCreate(false)}>
+      <Modal open={modalCreate} title="Nova reserva" onClose={() => { setModalCreate(false); setSubmitError(null) }}>
         <form onSubmit={handleCreate} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Quarto</label>
-            <select
-              value={form.roomId}
-              onChange={(e) => setForm({ ...form, roomId: e.target.value })}
-              required
-              className="border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-verde focus:border-transparent"
-            >
-              <option value="">Selecione um quarto</option>
-              {availableRooms.map((room: any) => (
-                <option key={getId(room)} value={getId(room)}>
-                  Quarto {room.number} — {room.type} — R$ {room.dailyRate?.toFixed(2)}/dia
-                </option>
-              ))}
-            </select>
-          </div>
+
+          {(submitError || mutationError) && (
+            <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
+              {submitError || mutationError}
+            </div>
+          )}
 
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Data de check-in</label>
@@ -220,7 +247,7 @@ export function MyBookings() {
               type="date"
               value={form.checkInDate}
               min={today}
-              onChange={(e) => setForm({ ...form, checkInDate: e.target.value })}
+              onChange={(e) => { setForm({ ...form, checkInDate: e.target.value, selectedRooms: [] as { roomId: string; numberOfGuests: number }[] }); setSubmitError(null) }}
               required
               className="border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-verde focus:border-transparent"
             />
@@ -238,9 +265,62 @@ export function MyBookings() {
             />
           </div>
 
-          <p className="text-xs text-zinc-400">
-            Uma diaria sera cobrada antecipadamente como confirmacao da reserva.
-          </p>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Quartos ({form.selectedRooms.length} selecionado(s))</label>
+            <div className="max-h-48 overflow-y-auto border border-zinc-200 rounded-lg divide-y divide-zinc-100">
+              {visibleRooms.map((room: any) => {
+                const rid = getId(room)
+                const selected = form.selectedRooms.find((sr) => sr.roomId === rid)
+                return (
+                  <label key={rid} className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-zinc-50 transition-colors ${selected ? 'bg-amber-50' : ''}`}>
+                    <input type="checkbox" checked={!!selected}
+                      onChange={() => {
+                        if (selected) {
+                          setForm((prev) => ({ ...prev, selectedRooms: prev.selectedRooms.filter((sr) => sr.roomId !== rid) }))
+                        } else {
+                          const cap = room.capacity ?? 1
+                          setForm((prev) => ({ ...prev, selectedRooms: [...prev.selectedRooms, { roomId: rid, numberOfGuests: Math.min(2, cap) }] }))
+                        }
+                      }}
+                      className="accent-amber-400 w-4 h-4 rounded" />
+                    <span className="flex-1 text-sm text-zinc-700">
+                      Quarto {room.number} — {room.type} — R$ {room.dailyRate?.toFixed(2)}/dia
+                    </span>
+                    {selected && (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-xs text-zinc-400">Hosp:</span>
+                        <input type="number" min={1} max={room.capacity} value={selected.numberOfGuests}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 1
+                            setForm((prev) => ({
+                              ...prev,
+                              selectedRooms: prev.selectedRooms.map((sr) =>
+                                sr.roomId === rid ? { ...sr, numberOfGuests: Math.max(1, val) } : sr
+                              ),
+                            }))
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-14 text-xs border border-zinc-200 rounded px-1.5 py-1 text-center" />
+                      </div>
+                    )}
+                  </label>
+                )
+              })}
+              {visibleRooms.length === 0 && (
+                <p className="text-sm text-zinc-400 text-center py-4">Nenhum quarto disponivel para este período</p>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex items-center justify-between">
+            <span className="text-sm font-medium text-amber-700">Adiantamento (1a diaria de cada quarto)</span>
+            <span className="text-base font-bold text-amber-700">
+              R$ {form.selectedRooms.reduce((s, sr) => {
+                const room = rooms.find((r: any) => getId(r) === sr.roomId)
+                return s + (room?.dailyRate ?? 0)
+              }, 0).toFixed(2)}
+            </span>
+          </div>
 
           <button
             type="submit"

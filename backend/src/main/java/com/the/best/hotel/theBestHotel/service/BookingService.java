@@ -37,37 +37,46 @@ public class BookingService {
     }
 
     public Booking create(Booking booking, User.Role role, ObjectId clientRefId) {
-        Room room = roomRepository.findById(booking.getRoomId())
-                .orElseThrow(() -> new RuntimeException("Room not found"));
-
-        if (room.getStatus() != Room.Status.AVAILABLE) {
-            switch (room.getStatus()) {
-                case RESERVED -> throw new RuntimeException("Este quarto possui uma reserva pendente");
-                case OCCUPIED -> throw new RuntimeException("Quarto ocupado");
-                case MAINTENANCE -> throw new RuntimeException("Quarto em manutenção");
-                default -> throw new RuntimeException("Quarto não disponível");
-            }
+        if (booking.getRooms() == null || booking.getRooms().isEmpty()) {
+            throw new RuntimeException("É necessário informar pelo menos um quarto");
         }
 
-        List<Booking.Status> ignoredStatuses = List.of(Booking.Status.CANCELLED, Booking.Status.CHECKOUT);
-        List<Booking> existing = bookingRepository.findByRoomIdAndStatusNotIn(booking.getRoomId(), ignoredStatuses);
-        for (Booking b : existing) {
-            if (booking.getCheckInDate().isBefore(b.getCheckOutDate()) &&
-                    booking.getCheckOutDate().isAfter(b.getCheckInDate())) {
-                if (b.getStatus() == Booking.Status.PENDING) {
-                    throw new RuntimeException("Este quarto possui uma reserva pendente");
+        double totalAdvance = 0;
+
+        for (Booking.BookedRoom booked : booking.getRooms()) {
+            Room room = roomRepository.findById(booked.getRoomId())
+                    .orElseThrow(() -> new RuntimeException("Quarto não encontrado"));
+
+            if (room.getStatus() != Room.Status.AVAILABLE) {
+                switch (room.getStatus()) {
+                    case RESERVED -> throw new RuntimeException("O quarto " + room.getNumber() + " possui uma reserva pendente");
+                    case OCCUPIED -> throw new RuntimeException("O quarto " + room.getNumber() + " está ocupado");
+                    case MAINTENANCE -> throw new RuntimeException("O quarto " + room.getNumber() + " está em manutenção");
+                    default -> throw new RuntimeException("O quarto " + room.getNumber() + " não está disponível");
                 }
-                throw new RuntimeException("Quarto já reservado para este período");
             }
+
+            List<Booking.Status> ignoredStatuses = List.of(Booking.Status.CANCELLED, Booking.Status.CHECKOUT);
+            List<Booking> existing = bookingRepository.findByRoomsRoomIdAndStatusNotIn(booked.getRoomId(), ignoredStatuses);
+            for (Booking b : existing) {
+                if (booking.getCheckInDate().isBefore(b.getCheckOutDate()) &&
+                        booking.getCheckOutDate().isAfter(b.getCheckInDate())) {
+                    if (b.getStatus() == Booking.Status.PENDING) {
+                        throw new RuntimeException("O quarto " + room.getNumber() + " possui uma reserva pendente");
+                    }
+                    throw new RuntimeException("O quarto " + room.getNumber() + " já está reservado para este período");
+                }
+            }
+
+            booked.setDailyRate(room.getDailyRate());
+            if (booked.getNumberOfGuests() < 1) {
+                booked.setNumberOfGuests(1);
+            }
+            totalAdvance += room.getDailyRate();
         }
 
-        booking.setDailyRate(room.getDailyRate());
-        booking.setAdvancePayment(room.getDailyRate());
+        booking.setAdvancePayment(totalAdvance);
         booking.setCreatedAt(LocalDateTime.now());
-
-        if (booking.getNumberOfGuests() < 1) {
-            booking.setNumberOfGuests(1);
-        }
 
         if (role == User.Role.CLIENT) {
             if (clientRefId != null) {
@@ -77,15 +86,23 @@ public class BookingService {
                 booking.setGuests(List.of(holder));
             }
             booking.setStatus(Booking.Status.PENDING);
-            room.setStatus(Room.Status.RESERVED);
-            roomRepository.save(room);
+            for (Booking.BookedRoom booked : booking.getRooms()) {
+                roomRepository.findById(booked.getRoomId()).ifPresent(room -> {
+                    room.setStatus(Room.Status.RESERVED);
+                    roomRepository.save(room);
+                });
+            }
         } else {
             if (booking.getGuests() == null || booking.getGuests().isEmpty()) {
                 throw new RuntimeException("É necessário informar o cliente titular da reserva");
             }
             booking.setStatus(Booking.Status.CONFIRMED);
-            room.setStatus(Room.Status.OCCUPIED);
-            roomRepository.save(room);
+            for (Booking.BookedRoom booked : booking.getRooms()) {
+                roomRepository.findById(booked.getRoomId()).ifPresent(room -> {
+                    room.setStatus(Room.Status.OCCUPIED);
+                    roomRepository.save(room);
+                });
+            }
         }
 
         return bookingRepository.save(booking);
@@ -98,10 +115,14 @@ public class BookingService {
             throw new RuntimeException("Only pending bookings can be approved");
         }
 
-        Room room = roomRepository.findById(booking.getRoomId())
-                .orElseThrow(() -> new RuntimeException("Room not found"));
-        room.setStatus(Room.Status.OCCUPIED);
-        roomRepository.save(room);
+        if (booking.getRooms() != null) {
+            for (Booking.BookedRoom booked : booking.getRooms()) {
+                roomRepository.findById(booked.getRoomId()).ifPresent(room -> {
+                    room.setStatus(Room.Status.OCCUPIED);
+                    roomRepository.save(room);
+                });
+            }
+        }
 
         booking.setStatus(Booking.Status.CONFIRMED);
         return bookingRepository.save(booking);
@@ -120,7 +141,6 @@ public class BookingService {
             throw new RuntimeException("Cannot cancel a booking with active check-in");
         }
 
-        // regra de estorno: até 48h antes do check-in -> estorno total, senão sem estorno
         double refund = 0.0;
         if (booking.getCheckInDate() != null) {
             LocalDateTime checkInDateTime = booking.getCheckInDate().atStartOfDay();
@@ -137,12 +157,13 @@ public class BookingService {
         booking.setCancellation(cancellation);
         booking.setStatus(Booking.Status.CANCELLED);
 
-        // libera o quarto se estava RESERVED ou OCCUPIED por causa dessa reserva
-        if (booking.getRoomId() != null) {
-            roomRepository.findById(booking.getRoomId()).ifPresent(room -> {
-                room.setStatus(Room.Status.AVAILABLE);
-                roomRepository.save(room);
-            });
+        if (booking.getRooms() != null) {
+            for (Booking.BookedRoom booked : booking.getRooms()) {
+                roomRepository.findById(booked.getRoomId()).ifPresent(room -> {
+                    room.setStatus(Room.Status.AVAILABLE);
+                    roomRepository.save(room);
+                });
+            }
         }
 
         return bookingRepository.save(booking);

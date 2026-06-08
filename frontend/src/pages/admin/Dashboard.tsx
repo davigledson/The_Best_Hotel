@@ -364,7 +364,7 @@ export function Dashboard() {
                   <div key={i} className="border-l-4 border-l-green-500 bg-green-50/60 rounded-r-xl px-4 py-3 flex items-center justify-between">
                     <div className="flex flex-col gap-0.5">
                       <span className="text-sm font-medium text-zinc-800">{formatDate(b.checkInDate)} → {formatDate(b.checkOutDate)}</span>
-                      <span className="text-xs text-green-600 font-medium">R$ {b.dailyRate?.toFixed(2)}/dia</span>
+                      <span className="text-xs text-green-600 font-medium">R$ {b.rooms?.[0]?.dailyRate?.toFixed(2)}/dia</span>
                     </div>
                   </div>
                 ))}
@@ -379,7 +379,7 @@ export function Dashboard() {
                   <div key={i} className="border-l-4 border-l-blue-500 bg-blue-50/60 rounded-r-xl px-4 py-3 flex items-center justify-between">
                     <div className="flex flex-col gap-0.5">
                       <span className="text-sm font-medium text-zinc-800">{formatDate(b.checkInDate)} → {formatDate(b.checkOutDate)}</span>
-                      <span className="text-xs text-blue-600 font-medium">R$ {b.dailyRate?.toFixed(2)}/dia</span>
+                      <span className="text-xs text-blue-600 font-medium">R$ {b.rooms?.[0]?.dailyRate?.toFixed(2)}/dia</span>
                     </div>
                   </div>
                 ))}
@@ -420,7 +420,7 @@ export function Dashboard() {
                     </span>
                   </div>
                   <p className="text-xs font-semibold text-zinc-700 mt-1">
-                    R$ {b.dailyRate?.toFixed(2)} <span className="font-normal text-zinc-400">/dia</span>
+                    R$ {b.rooms?.[0]?.dailyRate?.toFixed(2)} <span className="font-normal text-zinc-400">/dia</span>
                   </p>
                 </div>
               )

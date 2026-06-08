@@ -91,7 +91,7 @@ export function CheckIn() {
       if (!(client?.name ?? '').toLowerCase().includes(filters.clientName.toLowerCase())) return false
     }
     if (filters.roomNumber) {
-      const room = getRoom(b.roomId)
+      const room = getRoom(b.rooms?.[0]?.roomId)
       if (!(room?.number ?? '').toLowerCase().includes(filters.roomNumber.toLowerCase())) return false
     }
     if (filters.checkInDate) {
@@ -171,7 +171,7 @@ export function CheckIn() {
               {/* Grid de cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {paginated.map((b) => {
-                  const room = getRoom(b.roomId)
+                  const room = getRoom(b.rooms?.[0]?.roomId)
                   const holder = b.guests?.find((g) => g.holder)
                   const client = holder ? getClient(holder.clientId) : null
                   const nights = diffDays(b.checkInDate, b.checkOutDate)
@@ -212,7 +212,7 @@ export function CheckIn() {
                         </div>
                         <div className="flex items-center gap-1.5 text-zinc-500">
                           <DollarSign size={13} className="text-zinc-300 shrink-0" />
-                          <span>R$ {(b.dailyRate ?? 0).toFixed(2)}/dia · {nights} noite(s)</span>
+                          <span>{(b.rooms?.length ?? 1)} quarto(s) · {nights} noite(s)</span>
                         </div>
                       </div>
 
@@ -251,10 +251,11 @@ export function CheckIn() {
       {/* Modal de detalhamento */}
       <Modal open={!!selectedBooking && !showConfirm} title="Detalhes do Check-in" onClose={() => { setSelectedId(null); setSuccess(false) }}>
         {selectedBooking && (() => {
-          const room = getRoom(selectedBooking.roomId)
           const holder = selectedBooking.guests?.find((g) => g.holder)
           const client = holder ? getClient(holder.clientId) : null
           const nights = diffDays(selectedBooking.checkInDate, selectedBooking.checkOutDate)
+          const totalGuests = selectedBooking.rooms?.reduce((s, r) => s + (r.numberOfGuests ?? 1), 0) ?? 1
+          const sumDailyRates = selectedBooking.rooms?.reduce((s, r) => s + (r.dailyRate ?? 0), 0) ?? 0
 
           return (
             <div className="flex flex-col gap-5">
@@ -263,7 +264,7 @@ export function CheckIn() {
               <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-center gap-3">
                 <BedDouble size={20} className="text-blue-500 shrink-0" />
                 <div>
-                  <p className="font-semibold text-zinc-800">{room?.number ? `Quarto ${room.number}` : 'Sem quarto'} — {room?.type ?? 'Tipo não definido'}</p>
+                  <p className="font-semibold text-zinc-800">{selectedBooking.rooms?.length ?? 1} quarto(s) reservado(s)</p>
                   <p className="text-xs text-zinc-500">
                     {formatDate(selectedBooking.checkInDate)} ate {formatDate(selectedBooking.checkOutDate)} · {nights} noite(s)
                   </p>
@@ -276,8 +277,8 @@ export function CheckIn() {
                   <span className="text-sm font-semibold text-zinc-800">{client?.name ?? 'Hóspede não identificado'}</span>
                 </div>
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-xs text-zinc-400">Diaria</span>
-                  <span className="text-sm font-semibold text-zinc-800">R$ {selectedBooking.dailyRate?.toFixed(2)}</span>
+                  <span className="text-xs text-zinc-400">Total diarias/dia</span>
+                  <span className="text-sm font-semibold text-zinc-800">R$ {sumDailyRates.toFixed(2)}</span>
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-xs text-zinc-400">Adiantamento</span>
@@ -285,7 +286,7 @@ export function CheckIn() {
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-xs text-zinc-400">Hospedes</span>
-                  <span className="text-sm font-semibold text-zinc-800">{selectedBooking.numberOfGuests ?? selectedBooking.guests?.length ?? 1}</span>
+                  <span className="text-sm font-semibold text-zinc-800">{totalGuests}</span>
                 </div>
               </div>
 
@@ -329,14 +330,15 @@ export function CheckIn() {
       {/* Modal de confirmacao */}
       <Modal open={showConfirm} title="Confirmar Check-in" onClose={() => !checkInMutation.isPending && setShowConfirm(false)}>
         {selectedBooking && (() => {
-          const room = getRoom(selectedBooking.roomId)
+          const totalGuests = selectedBooking.rooms?.reduce((s, r) => s + (r.numberOfGuests ?? 1), 0) ?? 1
+          const sumDailyRates = selectedBooking.rooms?.reduce((s, r) => s + (r.dailyRate ?? 0), 0) ?? 0
 
           return (
             <div className="flex flex-col gap-5">
               <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-center gap-3">
                 <BedDouble size={20} className="text-blue-500 shrink-0" />
                 <div>
-                  <p className="font-semibold text-zinc-800">Quarto {room?.number ?? '—'}</p>
+                  <p className="font-semibold text-zinc-800">{selectedBooking.rooms?.length ?? 1} quarto(s)</p>
                   <p className="text-xs text-zinc-500">
                     {formatDate(selectedBooking.checkInDate)} ate {formatDate(selectedBooking.checkOutDate)}
                   </p>
@@ -345,8 +347,8 @@ export function CheckIn() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-xs text-zinc-400">Diaria</span>
-                  <span className="text-sm font-semibold text-zinc-800">R$ {(selectedBooking.dailyRate ?? 0).toFixed(2)}</span>
+                  <span className="text-xs text-zinc-400">Total diarias/dia</span>
+                  <span className="text-sm font-semibold text-zinc-800">R$ {sumDailyRates.toFixed(2)}</span>
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-xs text-zinc-400">Adiantamento</span>
@@ -354,7 +356,7 @@ export function CheckIn() {
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-xs text-zinc-400">Hospedes</span>
-                  <span className="text-sm font-semibold text-zinc-800">{selectedBooking.numberOfGuests ?? selectedBooking.guests?.length ?? 1}</span>
+                  <span className="text-sm font-semibold text-zinc-800">{totalGuests}</span>
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-xs text-zinc-400">Responsavel</span>

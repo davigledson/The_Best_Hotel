@@ -132,14 +132,18 @@ export const BookingStatus = {
   CHECKOUT: 'CHECKOUT',
 } as const;
 
+export interface BookedRoom {
+  roomId?: ObjectId;
+  dailyRate?: number;
+  numberOfGuests?: number;
+}
+
 export interface Booking {
   id?: ObjectId;
-  roomId?: ObjectId;
   guests?: Guest[];
-  numberOfGuests?: number;
+  rooms?: BookedRoom[];
   checkInDate?: string;
   checkOutDate?: string;
-  dailyRate?: number;
   advancePayment?: number;
   status?: BookingStatus;
   cancellation?: Cancellation;

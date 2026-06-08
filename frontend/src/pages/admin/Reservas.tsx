@@ -36,6 +36,13 @@ function formatDate(date?: string) {
   return `${d}/${m}/${y}`
 }
 
+function getRoomId(roomId: any): string {
+  if (!roomId) return ''
+  if (typeof roomId === 'string') return roomId
+  if (roomId.$oid) return roomId.$oid
+  return String(roomId)
+}
+
 interface ModalProps { open: boolean; title: string; onClose: () => void; children: React.ReactNode }
 function Modal({ open, title, onClose, children }: ModalProps) {
   if (!open) return null
@@ -56,48 +63,70 @@ function Modal({ open, title, onClose, children }: ModalProps) {
 
 const selectClass = "w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-verde focus:border-transparent bg-white appearance-none"
 const labelClass = "text-xs font-medium text-zinc-500 uppercase tracking-wide"
+const inputClass = "w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-verde focus:border-transparent bg-white"
 
 interface BookingFormProps {
   onSubmit: (data: Booking) => void
   loading: boolean
+  error: string | null
 }
 
-function BookingForm({ onSubmit, loading }: BookingFormProps) {
+function BookingForm({ onSubmit, loading, error }: BookingFormProps) {
   const { data: rooms = [] } = useFindAll1()
   const { data: clients = [] } = useFindAll4()
+  const { data: bookings = [] } = useFindAll5()
 
-  const availableRooms = rooms.filter((r) => r.status === 'AVAILABLE')
-
-  const [roomId, setRoomId] = useState('')
   const [checkInDate, setCheckInDate] = useState('')
   const [checkOutDate, setCheckOutDate] = useState('')
-  const [dailyRate, setDailyRate] = useState(0)
-  const [advancePayment, setAdvancePayment] = useState(0)
   const [selectedClientId, setSelectedClientId] = useState('')
-  const [numberOfGuests, setNumberOfGuests] = useState(1)
+  const [selectedRooms, setSelectedRooms] = useState<{ roomId: string; numberOfGuests: number }[]>([])
 
-  const selectedRoom = rooms.find((r) => getId(r) === roomId)
+  const conflictRoomIds = new Set<string>()
 
-  const handleRoomChange = (id: string) => {
-  setRoomId(id)
-  const room = rooms.find((r) => {
-    const rid = r.id as any
-    const roomIdStr = rid?.$oid ?? rid?.toString() ?? rid
-    return roomIdStr === id
-  })
-  if (room?.dailyRate) setDailyRate(room.dailyRate)
-}
+  if (checkInDate && checkOutDate) {
+    for (const b of bookings) {
+      if (!b.checkInDate || !b.checkOutDate || b.status === 'CANCELLED' || b.status === 'CHECKOUT') continue
+      if (checkInDate >= b.checkOutDate || checkOutDate <= b.checkInDate) continue
+      const roomIds = b.rooms?.map((r) => getRoomId(r.roomId)) ?? []
+      roomIds.forEach((id) => conflictRoomIds.add(id))
+    }
+  }
+
+  const visibleRooms = rooms.filter((r) => r.status === 'AVAILABLE' && !conflictRoomIds.has(getRoomId(r.id)))
+
+  const toggleRoom = (roomId: string) => {
+    setSelectedRooms((prev) => {
+      const exists = prev.find((r) => r.roomId === roomId)
+      if (exists) return prev.filter((r) => r.roomId !== roomId)
+      const room = rooms.find((r) => getRoomId(r.id) === roomId)
+      const cap = room?.capacity ?? 1
+      return [...prev, { roomId, numberOfGuests: Math.min(2, cap) }]
+    })
+  }
+
+  const updateGuests = (roomId: string, guests: number) => {
+    setSelectedRooms((prev) =>
+      prev.map((r) => (r.roomId === roomId ? { ...r, numberOfGuests: Math.max(1, guests) } : r))
+    )
+  }
+
+  const advancePayment = selectedRooms.reduce((sum, sr) => {
+    const room = rooms.find((r) => getRoomId(r.id) === sr.roomId)
+    return sum + (room?.dailyRate ?? 0)
+  }, 0)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedClientId) return
+    if (!selectedClientId || selectedRooms.length === 0) return
+    const roomsPayload = selectedRooms.map((sr) => {
+      const room = rooms.find((r) => getRoomId(r.id) === sr.roomId)!
+      return { roomId: sr.roomId as any, dailyRate: room.dailyRate, numberOfGuests: sr.numberOfGuests }
+    })
     onSubmit({
-      roomId: roomId as any,
+      rooms: roomsPayload as any,
       checkInDate,
       checkOutDate,
-      dailyRate,
       advancePayment,
-      numberOfGuests,
       guests: [{ clientId: selectedClientId as any, holder: true }],
     })
   }
@@ -105,57 +134,62 @@ function BookingForm({ onSubmit, loading }: BookingFormProps) {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
 
-      {/* Quarto */}
-      <div className="flex flex-col gap-1.5">
-        <label className={labelClass}>Quarto</label>
-        <div className="relative">
-          <select value={roomId} onChange={(e) => handleRoomChange(e.target.value)} required className={selectClass}>
-            <option value="">Selecione um quarto</option>
-           {availableRooms.map((r) => {
-  const rid = r.id as any
-  const idStr = rid?.$oid ?? rid?.toString() ?? rid
-  return (
-    <option key={idStr} value={idStr}>
-      Quarto {r.number} — {r.type} — R$ {r.dailyRate?.toFixed(2)}/dia
-    </option>
-  )
-})}
-          </select>
-          <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
+          {error}
         </div>
-        {selectedRoom && (
-          <p className="text-xs text-zinc-400">
-            Capacidade: {selectedRoom.capacity} pessoa(s) — {selectedRoom.description}
-          </p>
-        )}
-      </div>
+      )}
 
       {/* Datas */}
       <div className="flex gap-3">
         <div className="flex-1 flex flex-col gap-1.5">
           <label className={labelClass}>Check-in</label>
-          <input type="date" value={checkInDate} onChange={(e) => setCheckInDate(e.target.value)} required
-            className={selectClass} />
+          <input type="date" value={checkInDate} onChange={(e) => { setCheckInDate(e.target.value); setSelectedRooms([]) }} required
+            className={inputClass} />
         </div>
         <div className="flex-1 flex flex-col gap-1.5">
           <label className={labelClass}>Check-out</label>
           <input type="date" value={checkOutDate} onChange={(e) => setCheckOutDate(e.target.value)} required
-            min={checkInDate} className={selectClass} />
+            min={checkInDate} className={inputClass} />
         </div>
       </div>
 
-      {/* Valores */}
-      <div className="flex gap-3">
-        <div className="flex-1 flex flex-col gap-1.5">
-          <label className={labelClass}>Diaria (R$)</label>
-          <input type="number" value={dailyRate} onChange={(e) => setDailyRate(Number(e.target.value))}
-            min={0} step={0.01} className={selectClass} />
+      {/* Quartos */}
+      <div className="flex flex-col gap-1.5">
+        <label className={labelClass}>Quartos ({selectedRooms.length} selecionado(s))</label>
+        <div className="max-h-48 overflow-y-auto border border-zinc-200 rounded-lg divide-y divide-zinc-100">
+          {visibleRooms.map((r) => {
+            const rid = getRoomId(r.id)
+            const selected = selectedRooms.find((sr) => sr.roomId === rid)
+            return (
+              <label key={rid} className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-zinc-50 transition-colors ${selected ? 'bg-amber-50' : ''}`}>
+                <input type="checkbox" checked={!!selected} onChange={() => toggleRoom(rid)}
+                  className="accent-amber-400 w-4 h-4 rounded" />
+                <span className="flex-1 text-sm text-zinc-700">
+                  Quarto {r.number} — {r.type} — R$ {r.dailyRate?.toFixed(2)}/dia
+                </span>
+                {selected && (
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-xs text-zinc-400">Hosp:</span>
+                    <input type="number" min={1} max={r.capacity} value={selected.numberOfGuests}
+                      onChange={(e) => updateGuests(rid, parseInt(e.target.value) || 1)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-14 text-xs border border-zinc-200 rounded px-1.5 py-1 text-center" />
+                  </div>
+                )}
+              </label>
+            )
+          })}
+          {visibleRooms.length === 0 && (
+            <p className="text-sm text-zinc-400 text-center py-4">Nenhum quarto disponivel para este período</p>
+          )}
         </div>
-        <div className="flex-1 flex flex-col gap-1.5">
-          <label className={labelClass}>Adiantamento (R$)</label>
-          <input type="number" value={advancePayment} onChange={(e) => setAdvancePayment(Number(e.target.value))}
-            min={0} step={0.01} className={selectClass} />
-        </div>
+      </div>
+
+      {/* Adiantamento */}
+      <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex items-center justify-between">
+        <span className="text-sm font-medium text-amber-700">Adiantamento (1a diaria de cada quarto)</span>
+        <span className="text-base font-bold text-amber-700">R$ {advancePayment.toFixed(2)}</span>
       </div>
 
       {/* Cliente titular */}
@@ -174,15 +208,7 @@ function BookingForm({ onSubmit, loading }: BookingFormProps) {
         </div>
       </div>
 
-      {/* Número de hóspedes */}
-      <div className="flex flex-col gap-1.5">
-        <label className={labelClass}>Número de hóspedes</label>
-        <input type="number" min={1} value={numberOfGuests}
-          onChange={(e) => setNumberOfGuests(parseInt(e.target.value) || 1)}
-          className={selectClass} />
-      </div>
-
-      <button type="submit" disabled={loading}
+      <button type="submit" disabled={loading || selectedRooms.length === 0}
         className="mt-1 bg-amber-400 hover:bg-laranja disabled:opacity-50 text-zinc-900 font-medium text-sm py-2.5 rounded-lg transition-colors">
         {loading ? 'Salvando...' : 'Cadastrar reserva'}
       </button>
@@ -203,6 +229,8 @@ export function Reservas() {
   const { data: bookings = [], isLoading } = useFindAll5()
   const { data: rooms = [] } = useFindAll1()
 
+  const roomsById = new Map(rooms.map((r) => [getRoomId(r.id), r]))
+
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getFindAll5QueryKey() })
 
   const createMutation = useCreate5({
@@ -217,15 +245,21 @@ export function Reservas() {
     mutation: { onSuccess: () => { invalidate(); setConfirmApprove(null) } },
   })
 
-  const getRoomNumber = (roomId: any) => {
-    const id = typeof roomId === 'object' && roomId?.$oid ? roomId.$oid : roomId
-    return rooms.find((r) => getId(r) === id)?.number ?? '—'
+  const getRoomNumbers = (booking: Booking) => {
+    return booking.rooms?.map((r) => {
+      const room = roomsById.get(getRoomId(r.roomId))
+      return room?.number ?? '—'
+    }).join(', ') ?? '—'
+  }
+
+  const getTotalGuests = (booking: Booking) => {
+    return booking.rooms?.reduce((s, r) => s + (r.numberOfGuests ?? 1), 0) ?? 0
   }
 
   const filtered = bookings.filter((b) => {
     const q = search.toLowerCase()
     const matchSearch =
-      getRoomNumber(b.roomId).toLowerCase().includes(q) ||
+      getRoomNumbers(b).toLowerCase().includes(q) ||
       (b.status ?? '').toLowerCase().includes(q)
     const matchStatus = statusFilter ? b.status === statusFilter : true
     return matchSearch && matchStatus
@@ -290,7 +324,7 @@ export function Reservas() {
                 <th className="text-left px-4 py-3 text-xs font-medium text-zinc-400 uppercase tracking-wide">Check-in</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-zinc-400 uppercase tracking-wide">Check-out</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-zinc-400 uppercase tracking-wide">Hospedes</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-zinc-400 uppercase tracking-wide">Diaria</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-zinc-400 uppercase tracking-wide">Adto.</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-zinc-400 uppercase tracking-wide">Status</th>
                 <th className="px-4 py-3" />
               </tr>
@@ -306,7 +340,7 @@ export function Reservas() {
                         <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center">
                           <BedDouble size={14} className="text-amber-500" />
                         </div>
-                        <span className="font-medium text-zinc-800">Nº {getRoomNumber(b.roomId)}</span>
+                        <span className="font-medium text-zinc-800">{getRoomNumbers(b)}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-zinc-600">{formatDate(b.checkInDate)}</td>
@@ -314,10 +348,10 @@ export function Reservas() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1 text-zinc-500">
                         <Users size={13} />
-                        <span>{b.numberOfGuests ?? b.guests?.length ?? 0}</span>
+                        <span>{getTotalGuests(b)}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-zinc-600">R$ {b.dailyRate?.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-zinc-600">R$ {b.advancePayment?.toFixed(2)}</td>
                     <td className="px-4 py-3">
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${status.color}`}>
                         {status.label}
@@ -363,9 +397,10 @@ export function Reservas() {
       )}
 
       {/* Modal criar */}
-      <Modal open={modalCreate} title="Nova reserva" onClose={() => setModalCreate(false)}>
+      <Modal open={modalCreate} title="Nova reserva" onClose={() => { setModalCreate(false); createMutation.reset() }}>
         <BookingForm
           loading={createMutation.isPending}
+          error={createMutation.error ? (createMutation.error as any)?.response?.data?.message ?? (createMutation.error as any)?.message ?? 'Erro ao criar reserva' : null}
           onSubmit={(data) => createMutation.mutate({ data })}
         />
       </Modal>
@@ -375,8 +410,8 @@ export function Reservas() {
         {confirmCancel && (
           <div className="flex flex-col gap-4">
             <p className="text-sm text-zinc-600">
-              Tem certeza que deseja cancelar a reserva do quarto{' '}
-              <span className="font-medium text-zinc-800">Nº {getRoomNumber(confirmCancel.roomId)}</span>?
+              Tem certeza que deseja cancelar a reserva{' '}
+              <span className="font-medium text-zinc-800">({getRoomNumbers(confirmCancel)})</span>?
               Esta acao pode estar sujeita a regras de estorno.
             </p>
             <div className="flex gap-2 justify-end">
@@ -400,8 +435,8 @@ export function Reservas() {
         {confirmApprove && (
           <div className="flex flex-col gap-4">
             <p className="text-sm text-zinc-600">
-              Confirmar a aprovacao da reserva do quarto{' '}
-              <span className="font-medium text-zinc-800">Nº {getRoomNumber(confirmApprove.roomId)}</span>?
+              Confirmar a aprovacao da reserva{' '}
+              <span className="font-medium text-zinc-800">({getRoomNumbers(confirmApprove)})</span>?
             </p>
             <p className="text-xs text-zinc-400">
               Apos aprovada, a reserva ficara disponivel para check-in.

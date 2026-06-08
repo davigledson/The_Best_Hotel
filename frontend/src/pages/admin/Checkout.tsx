@@ -99,13 +99,20 @@ export function CheckOut() {
     return clientsById.get(String(id))
   }, [clientsById])
 
-  const getRoomByBooking = useCallback((bookingId: any) => {
+  const getRoomsByBooking = useCallback((bookingId: any) => {
     const id = typeof bookingId === 'object' && bookingId?.$oid ? bookingId.$oid : bookingId
     const booking = bookingsById.get(String(id))
-    if (!booking) return null
-    const roomId = typeof booking.roomId === 'object' && (booking.roomId as any)?.$oid ? (booking.roomId as any).$oid : booking.roomId
-    return roomsById.get(String(roomId)) ?? null
+    if (!booking?.rooms) return []
+    return booking.rooms.map((br) => {
+      const roomId = typeof br.roomId === 'object' && (br.roomId as any)?.$oid ? (br.roomId as any).$oid : br.roomId
+      return roomsById.get(String(roomId))
+    }).filter(Boolean)
   }, [bookingsById, roomsById])
+
+  const getFirstRoomByBooking = useCallback((bookingId: any) => {
+    const rooms = getRoomsByBooking(bookingId)
+    return rooms[0] ?? null
+  }, [getRoomsByBooking])
 
   const filtered = activeStays.filter((s) => {
     if (filters.clientName) {
@@ -113,7 +120,7 @@ export function CheckOut() {
       if (!(client?.name ?? '').toLowerCase().includes(filters.clientName.toLowerCase())) return false
     }
     if (filters.roomNumber) {
-      const room = getRoomByBooking(s.bookingId)
+      const room = getFirstRoomByBooking(s.bookingId)
       if (!(room?.number ?? '').toLowerCase().includes(filters.roomNumber.toLowerCase())) return false
     }
     return true
@@ -200,7 +207,7 @@ export function CheckOut() {
               {/* Grid de cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {paginated.map((s) => {
-              const room = getRoomByBooking(s.bookingId)
+              const room = getFirstRoomByBooking(s.bookingId)
               const client = getClient(s.clientId)
               const days = diffDaysFromNow(s.checkInAt)
               const totalCons = s.consumptions?.length ?? 0
@@ -309,7 +316,7 @@ export function CheckOut() {
       {/* Modal de detalhamento */}
       <Modal open={!!selectedStay && !showConfirm} title="Detalhes do Check-out" onClose={() => { setSelectedId(null); setSuccess(false) }}>
         {selectedStay && (() => {
-          const room = getRoomByBooking(selectedStay.bookingId)
+          const room = getFirstRoomByBooking(selectedStay.bookingId)
           const client = getClient(selectedStay.clientId)
           const days = diffDaysFromNow(selectedStay.checkInAt)
           const consumptions = selectedStay.consumptions ?? []
@@ -429,7 +436,7 @@ export function CheckOut() {
       {/* Modal de confirmacao */}
       <Modal open={showConfirm} title="Confirmar Check-out" onClose={() => !checkOutMutation.isPending && setShowConfirm(false)}>
         {selectedStay && (() => {
-          const room = getRoomByBooking(selectedStay.bookingId)
+          const room = getFirstRoomByBooking(selectedStay.bookingId)
 
           return (
             <div className="flex flex-col gap-5">

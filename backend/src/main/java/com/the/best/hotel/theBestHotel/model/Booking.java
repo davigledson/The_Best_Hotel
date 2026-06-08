@@ -19,18 +19,13 @@ public class Booking {
     @JsonSerialize(using = ToStringSerializer.class)
     private ObjectId id;
 
-    @JsonSerialize(using = ToStringSerializer.class)
-    private ObjectId roomId;
-
     private List<Guest> guests;
 
-    private int numberOfGuests = 1;
+    private List<BookedRoom> rooms;
 
     private LocalDate checkInDate;
 
     private LocalDate checkOutDate;
-
-    private double dailyRate;
 
     private double advancePayment;
 
@@ -41,6 +36,14 @@ public class Booking {
     private LocalDateTime createdAt;
 
     private Boolean checkinRequested = false;
+
+    @Data
+    public static class BookedRoom {
+        @JsonSerialize(using = ToStringSerializer.class)
+        private ObjectId roomId;
+        private double dailyRate;
+        private int numberOfGuests = 1;
+    }
 
     @Data
     public static class Guest {

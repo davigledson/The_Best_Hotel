@@ -127,11 +127,12 @@ export function Estadias() {
     onSuccess: () => { invalidate(); setConfirmConsumption(null) },
   })
 
-  const getRoomByBooking = useCallback((bookingId: any) => {
+  const getFirstRoomByBooking = useCallback((bookingId: any) => {
     const id = typeof bookingId === 'object' && bookingId?.$oid ? bookingId.$oid : bookingId
     const booking = bookingsById.get(String(id))
-    if (!booking) return null
-    const roomId = typeof booking.roomId === 'object' && (booking.roomId as any)?.$oid ? (booking.roomId as any).$oid : booking.roomId
+    if (!booking?.rooms) return null
+    const br = booking.rooms[0]
+    const roomId = typeof br.roomId === 'object' && (br.roomId as any)?.$oid ? (br.roomId as any).$oid : br.roomId
     return roomsById.get(String(roomId)) ?? null
   }, [bookingsById, roomsById])
 
@@ -147,7 +148,7 @@ export function Estadias() {
       if (!(client?.name ?? '').toLowerCase().includes(filters.clientName.toLowerCase())) return false
     }
     if (filters.roomNumber) {
-      const room = getRoomByBooking(s.bookingId)
+      const room = getFirstRoomByBooking(s.bookingId)
       if (!(room?.number ?? '').toLowerCase().includes(filters.roomNumber.toLowerCase())) return false
     }
     return true
@@ -219,7 +220,7 @@ export function Estadias() {
           </button>
 
           {selectedStay && (() => {
-            const room = getRoomByBooking(selectedStay.bookingId)
+            const room = getFirstRoomByBooking(selectedStay.bookingId)
             const client = getClient(selectedStay.clientId)
             const days = diffDaysFromNow(selectedStay.checkInAt)
             const consumptions = selectedStay.consumptions ?? []
@@ -401,7 +402,7 @@ export function Estadias() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {paginated.map((s) => {
-                const room = getRoomByBooking(s.bookingId)
+                const room = getFirstRoomByBooking(s.bookingId)
                 const client = getClient(s.clientId)
                 const days = diffDaysFromNow(s.checkInAt)
                 const totalCons = s.consumptions?.length ?? 0

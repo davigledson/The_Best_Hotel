@@ -59,8 +59,14 @@ public class StayService {
             throw new RuntimeException("Check-in already done for this booking");
         });
 
-        Room room = roomRepository.findById(booking.getRoomId())
-                .orElseThrow(() -> new RuntimeException("Room not found"));
+        if (booking.getRooms() != null) {
+            for (Booking.BookedRoom booked : booking.getRooms()) {
+                roomRepository.findById(booked.getRoomId()).ifPresent(room -> {
+                    room.setStatus(Room.Status.OCCUPIED);
+                    roomRepository.save(room);
+                });
+            }
+        }
 
         ObjectId clientId = null;
         if (booking.getGuests() != null) {
@@ -70,9 +76,6 @@ public class StayService {
                     .findFirst()
                     .orElse(null);
         }
-
-        room.setStatus(Room.Status.OCCUPIED);
-        roomRepository.save(room);
 
         booking.setStatus(Booking.Status.CHECKIN);
         bookingRepository.save(booking);
@@ -168,8 +171,10 @@ public class StayService {
         long days = ChronoUnit.DAYS.between(stay.getCheckInAt(), checkOutAt);
         if (days == 0) days = 1;
 
-        double totalDailies = days * booking.getDailyRate();
-        // desconta a diária já paga no ato da reserva
+        double sumDailyRates = booking.getRooms() != null
+                ? booking.getRooms().stream().mapToDouble(Booking.BookedRoom::getDailyRate).sum()
+                : 0;
+        double totalDailies = days * sumDailyRates;
         totalDailies = Math.max(0, totalDailies - booking.getAdvancePayment());
 
         double totalConsumptions = stay.getConsumptions().stream()
@@ -184,10 +189,14 @@ public class StayService {
         stay.setGrandTotal(totalDailies + totalConsumptions);
         stay.setStatus(Stay.Status.CLOSED);
 
-        Room room = roomRepository.findById(booking.getRoomId())
-                .orElseThrow(() -> new RuntimeException("Room not found"));
-        room.setStatus(Room.Status.AVAILABLE);
-        roomRepository.save(room);
+        if (booking.getRooms() != null) {
+            for (Booking.BookedRoom booked : booking.getRooms()) {
+                roomRepository.findById(booked.getRoomId()).ifPresent(room -> {
+                    room.setStatus(Room.Status.AVAILABLE);
+                    roomRepository.save(room);
+                });
+            }
+        }
 
         booking.setStatus(Booking.Status.CHECKOUT);
         bookingRepository.save(booking);

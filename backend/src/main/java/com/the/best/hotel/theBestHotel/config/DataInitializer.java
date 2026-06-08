@@ -14,12 +14,6 @@ import com.the.best.hotel.theBestHotel.repository.ProductRepository;
 import com.the.best.hotel.theBestHotel.repository.RoomRepository;
 import com.the.best.hotel.theBestHotel.repository.StayRepository;
 import com.the.best.hotel.theBestHotel.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
-import org.bson.types.ObjectId;
-import org.springframework.boot.CommandLineRunner;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Component;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -30,6 +24,11 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
+import org.bson.types.ObjectId;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
@@ -46,47 +45,103 @@ public class DataInitializer implements CommandLineRunner {
 
     private static final Random RNG = new Random();
 
-    private static final List<String> TIPOS_QUARTO = List.of("Standard", "Deluxe", "Master Suite", "Presidential Suite");
+    private static final List<String> TIPOS_QUARTO = List.of(
+        "Standard",
+        "Deluxe",
+        "Master Suite",
+        "Presidential Suite"
+    );
 
     private static final List<String> PRODUTO_NOME = List.of(
-            "Agua mineral", "Suco", "Refrigerante", "Cerveja", "Vinho",
-            "Cafe", "Cha", "Leite", "Salgadinho", "Biscoito",
-            "Chocolate", "Sorvete", "Barra de cereal", "Pao", "Sanduiche",
-            "Agua tonica", "Energético", "Isotonico", "Queijo", "Presunto"
+        "Agua mineral",
+        "Suco",
+        "Refrigerante",
+        "Cerveja",
+        "Vinho",
+        "Cafe",
+        "Cha",
+        "Leite",
+        "Salgadinho",
+        "Biscoito",
+        "Chocolate",
+        "Sorvete",
+        "Barra de cereal",
+        "Pao",
+        "Sanduiche",
+        "Agua tonica",
+        "Energético",
+        "Isotonico",
+        "Queijo",
+        "Presunto"
     );
 
     private static final List<String> PRODUTO_DETALHE = List.of(
-            "natural", "com acucar", "diet", "zero", "artesanal",
-            "importado", "tradicional", "premium", "integral", "light",
-            "torrado", "moido", "em po", "lata", "garrafa"
+        "natural",
+        "com acucar",
+        "diet",
+        "zero",
+        "artesanal",
+        "importado",
+        "tradicional",
+        "premium",
+        "integral",
+        "light",
+        "torrado",
+        "moido",
+        "em po",
+        "lata",
+        "garrafa"
     );
 
     private static final List<String> PRODUTO_CATEGORIA = List.of(
-            "Bebidas", "Alimentos", "Higiene", "Diversos"
+        "Bebidas",
+        "Alimentos",
+        "Higiene",
+        "Diversos"
     );
 
     private static final List<String> NOMES = List.of(
-            "joao", "maria", "pedro", "carlos", "ana",
-            "lucas", "julia", "rafael", "beatriz", "gabriel",
-            "fernanda", "rodrigo", "camila", "felipe", "amanda"
+        "joao",
+        "maria",
+        "pedro",
+        "carlos",
+        "ana",
+        "lucas",
+        "julia",
+        "rafael",
+        "beatriz",
+        "gabriel",
+        "fernanda",
+        "rodrigo",
+        "camila",
+        "felipe",
+        "amanda"
     );
 
     @Override
     public void run(String... args) {
-        createIfNotExists("admin@gmail.com", "admin123", User.Role.ADMIN);
-        createIfNotExists("funcionario@gmail.com", "func123", User.Role.EMPLOYEE);
-        createIfNotExists("cliente@gmail.com", "cliente123", User.Role.CLIENT);
-
         seedRooms(100);
         seedProducts(250);
 
         seedFromNameList(20, User.Role.EMPLOYEE);
         seedFromNameList(120, User.Role.CLIENT);
 
+        createIfNotExists("admin@gmail.com", "admin123", User.Role.ADMIN);
+        createIfNotExists(
+            "funcionario@gmail.com",
+            "func123",
+            User.Role.EMPLOYEE
+        );
+        createIfNotExists("cliente@gmail.com", "cliente123", User.Role.CLIENT);
+
         seedBookingsAndStays(100, 67, 23);
     }
 
-    private void createIfNotExists(String email, String password, User.Role role) {
+    private void createIfNotExists(
+        String email,
+        String password,
+        User.Role role
+    ) {
         if (userRepository.existsByEmail(email)) return;
 
         User user = new User();
@@ -121,12 +176,15 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void seedFromNameList(int count, User.Role role) {
+        if (
+            role == User.Role.EMPLOYEE && employeeRepository.count() > 0
+        ) return;
+        if (role == User.Role.CLIENT && clientRepository.count() > 0) return;
 
         int created = 0;
 
         while (created < count) {
-
-            String nome = NOMES.get((int)(NOMES.size() * Math.random()));
+            String nome = NOMES.get((int) (NOMES.size() * Math.random()));
             String email = "";
             int i = 0;
 
@@ -134,15 +192,24 @@ public class DataInitializer implements CommandLineRunner {
                 email = nome + (i++) + "@gmail.com";
             } while (userRepository.existsByEmail(email));
 
-
             User user = new User();
             user.setEmail(email);
             user.setPassword(passwordEncoder.encode(nome + "123"));
             user.setRole(role);
             user = userRepository.save(user);
 
-            String cpf = String.format("%03d.%03d.%03d-%02d", RNG.nextInt(1000), RNG.nextInt(1000), RNG.nextInt(1000), RNG.nextInt(100));
-            String phone = String.format("(11) 9%04d-%04d", RNG.nextInt(10000), RNG.nextInt(10000));
+            String cpf = String.format(
+                "%03d.%03d.%03d-%02d",
+                RNG.nextInt(1000),
+                RNG.nextInt(1000),
+                RNG.nextInt(1000),
+                RNG.nextInt(100)
+            );
+            String phone = String.format(
+                "(11) 9%04d-%04d",
+                RNG.nextInt(10000),
+                RNG.nextInt(10000)
+            );
 
             if (role == User.Role.EMPLOYEE) {
                 Employee emp = new Employee();
@@ -160,7 +227,9 @@ public class DataInitializer implements CommandLineRunner {
                 cli.setCpf(cpf);
                 cli.setEmail(email);
                 cli.setPhone(phone);
-                cli.setAddress("Rua " + capitalize(nome) + ", " + RNG.nextInt(1000));
+                cli.setAddress(
+                    "Rua " + capitalize(nome) + ", " + RNG.nextInt(1000)
+                );
                 cli = clientRepository.save(cli);
                 user.setRefId(cli.getId());
                 userRepository.save(user);
@@ -168,10 +237,7 @@ public class DataInitializer implements CommandLineRunner {
             }
 
             created++;
-            
-
         }
-
     }
 
     private void seedRooms(int n) {
@@ -210,7 +276,13 @@ public class DataInitializer implements CommandLineRunner {
             Room room = new Room();
             room.setNumber(numero);
             room.setType(tipo);
-            room.setDescription("Quarto " + tipo + " com capacidade para " + capacidade + " pessoas");
+            room.setDescription(
+                "Quarto " +
+                    tipo +
+                    " com capacidade para " +
+                    capacidade +
+                    " pessoas"
+            );
             room.setCapacity(capacidade);
             room.setDailyRate(diaria);
             room.setStatus(Room.Status.AVAILABLE);
@@ -228,19 +300,25 @@ public class DataInitializer implements CommandLineRunner {
         for (int i = 0; i < n; i++) {
             String nome;
             do {
-                nome = PRODUTO_NOME.get(RNG.nextInt(PRODUTO_NOME.size()))
-                        + " " + PRODUTO_DETALHE.get(RNG.nextInt(PRODUTO_DETALHE.size()));
+                nome =
+                    PRODUTO_NOME.get(RNG.nextInt(PRODUTO_NOME.size())) +
+                    " " +
+                    PRODUTO_DETALHE.get(RNG.nextInt(PRODUTO_DETALHE.size()));
             } while (usados.contains(nome));
             usados.add(nome);
 
             Product product = new Product();
             product.setName(nome);
-            product.setCategory(PRODUTO_CATEGORIA.get(RNG.nextInt(PRODUTO_CATEGORIA.size())));
+            product.setCategory(
+                PRODUTO_CATEGORIA.get(RNG.nextInt(PRODUTO_CATEGORIA.size()))
+            );
             product.setPrice(RNG.nextInt(3, 50) + 0.99);
             product.setActive(true);
 
             productRepository.save(product);
-            System.out.println("Produto criado: " + nome + " (" + product.getCategory() + ")");
+            System.out.println(
+                "Produto criado: " + nome + " (" + product.getCategory() + ")"
+            );
         }
     }
 
@@ -251,7 +329,9 @@ public class DataInitializer implements CommandLineRunner {
         List<Client> allClients = clientRepository.findAll();
         List<Product> allProducts = productRepository.findAll();
 
-        if (allRooms.isEmpty() || allClients.isEmpty() || allProducts.isEmpty()) return;
+        if (
+            allRooms.isEmpty() || allClients.isEmpty() || allProducts.isEmpty()
+        ) return;
 
         LocalDate today = LocalDate.now();
         int nRemaining = nBookings - nActive - nClosed;
@@ -262,8 +342,12 @@ public class DataInitializer implements CommandLineRunner {
         // Build status list and shuffle
         List<Booking.Status> statuses = new ArrayList<>();
         for (int i = 0; i < nPending; i++) statuses.add(Booking.Status.PENDING);
-        for (int i = 0; i < nConfirmed; i++) statuses.add(Booking.Status.CONFIRMED);
-        for (int i = 0; i < nCancelled; i++) statuses.add(Booking.Status.CANCELLED);
+        for (int i = 0; i < nConfirmed; i++) statuses.add(
+            Booking.Status.CONFIRMED
+        );
+        for (int i = 0; i < nCancelled; i++) statuses.add(
+            Booking.Status.CANCELLED
+        );
         for (int i = 0; i < nActive; i++) statuses.add(Booking.Status.CHECKIN);
         for (int i = 0; i < nClosed; i++) statuses.add(Booking.Status.CHECKOUT);
         Collections.shuffle(statuses, RNG);
@@ -276,7 +360,10 @@ public class DataInitializer implements CommandLineRunner {
             int pastDays = 10;
             int futureDays = 7;
 
-            if (status == Booking.Status.PENDING || status == Booking.Status.CONFIRMED) {
+            if (
+                status == Booking.Status.PENDING ||
+                status == Booking.Status.CONFIRMED
+            ) {
                 offset = RNG.nextInt(1, futureDays + 1);
             } else if (status == Booking.Status.CANCELLED) {
                 offset = -RNG.nextInt(1, pastDays + 1);
@@ -301,15 +388,23 @@ public class DataInitializer implements CommandLineRunner {
             guest.setClientId(client.getId());
             guest.setHolder(true);
 
+            Booking.BookedRoom bookedRoom = new Booking.BookedRoom();
+            bookedRoom.setRoomId(room.getId());
+            bookedRoom.setDailyRate(dailyRate);
+            bookedRoom.setNumberOfGuests(
+                RNG.nextInt(1, room.getCapacity() + 1)
+            );
+
             Booking booking = new Booking();
-            booking.setRoomId(room.getId());
+            booking.setRooms(List.of(bookedRoom));
             booking.setGuests(List.of(guest));
             booking.setCheckInDate(checkIn);
             booking.setCheckOutDate(checkOut);
-            booking.setDailyRate(dailyRate);
-            booking.setAdvancePayment(0.0);
+            booking.setAdvancePayment(dailyRate);
             booking.setStatus(status);
-            booking.setCreatedAt(LocalDateTime.now().minusDays(RNG.nextInt(15)));
+            booking.setCreatedAt(
+                LocalDateTime.now().minusDays(RNG.nextInt(15))
+            );
 
             if (status == Booking.Status.CANCELLED) {
                 Booking.Cancellation cancel = new Booking.Cancellation();
@@ -320,9 +415,20 @@ public class DataInitializer implements CommandLineRunner {
             }
 
             bookingRepository.save(booking);
-            System.out.println("Reserva criada: " + checkIn + " -> " + checkOut + " (" + status + ")");
+            System.out.println(
+                "Reserva criada: " +
+                    checkIn +
+                    " -> " +
+                    checkOut +
+                    " (" +
+                    status +
+                    ")"
+            );
 
-            if (status == Booking.Status.CHECKIN || status == Booking.Status.CHECKOUT) {
+            if (
+                status == Booking.Status.CHECKIN ||
+                status == Booking.Status.CHECKOUT
+            ) {
                 room.setStatus(Room.Status.OCCUPIED);
                 roomRepository.save(room);
             }
@@ -338,13 +444,17 @@ public class DataInitializer implements CommandLineRunner {
         }
 
         // Create stays for CHECKIN bookings (ACTIVE)
-        List<Booking> checkinBookings = bookingRepository.findByStatus(Booking.Status.CHECKIN);
+        List<Booking> checkinBookings = bookingRepository.findByStatus(
+            Booking.Status.CHECKIN
+        );
         for (Booking b : checkinBookings) {
-            ObjectId clientId = b.getGuests().stream()
-                    .filter(Booking.Guest::isHolder)
-                    .map(Booking.Guest::getClientId)
-                    .findFirst()
-                    .orElse(null);
+            ObjectId clientId = b
+                .getGuests()
+                .stream()
+                .filter(Booking.Guest::isHolder)
+                .map(Booking.Guest::getClientId)
+                .findFirst()
+                .orElse(null);
 
             Stay stay = new Stay();
             stay.setBookingId(b.getId());
@@ -365,36 +475,57 @@ public class DataInitializer implements CommandLineRunner {
                 c.setProductName(p.getName());
                 c.setQuantity(RNG.nextInt(1, 4));
                 c.setUnitPrice(p.getPrice());
-                c.setRegisteredAt(stay.getCheckInAt().plusHours(RNG.nextInt(24)));
+                c.setRegisteredAt(
+                    stay.getCheckInAt().plusHours(RNG.nextInt(24))
+                );
                 Stay.DeliveryStatus[] activeStatuses = {
-                        Stay.DeliveryStatus.FOR_DELIVERY,
-                        Stay.DeliveryStatus.FOR_PICKUP,
-                        Stay.DeliveryStatus.AWAITING_CONFIRMATION,
-                        Stay.DeliveryStatus.DELIVERED
+                    Stay.DeliveryStatus.FOR_DELIVERY,
+                    Stay.DeliveryStatus.FOR_PICKUP,
+                    Stay.DeliveryStatus.AWAITING_CONFIRMATION,
+                    Stay.DeliveryStatus.DELIVERED,
                 };
-                c.setDeliveryStatus(activeStatuses[RNG.nextInt(activeStatuses.length)]);
+                c.setDeliveryStatus(
+                    activeStatuses[RNG.nextInt(activeStatuses.length)]
+                );
                 c.setNotes(RNG.nextBoolean() ? "obs: " + p.getName() : null);
                 stay.getConsumptions().add(c);
             }
 
             stayRepository.save(stay);
-            System.out.println("Estadia ativa criada para reserva " + b.getId());
+            System.out.println(
+                "Estadia ativa criada para reserva " + b.getId()
+            );
         }
 
         // Create stays for CHECKOUT bookings (CLOSED)
-        List<Booking> checkoutBookings = bookingRepository.findByStatus(Booking.Status.CHECKOUT);
+        List<Booking> checkoutBookings = bookingRepository.findByStatus(
+            Booking.Status.CHECKOUT
+        );
         for (Booking b : checkoutBookings) {
-            ObjectId clientId = b.getGuests().stream()
-                    .filter(Booking.Guest::isHolder)
-                    .map(Booking.Guest::getClientId)
-                    .findFirst()
-                    .orElse(null);
+            ObjectId clientId = b
+                .getGuests()
+                .stream()
+                .filter(Booking.Guest::isHolder)
+                .map(Booking.Guest::getClientId)
+                .findFirst()
+                .orElse(null);
 
             LocalDateTime checkOutAt = b.getCheckOutDate().atStartOfDay();
-            long days = ChronoUnit.DAYS.between(b.getCheckInDate(), b.getCheckOutDate());
+            long days = ChronoUnit.DAYS.between(
+                b.getCheckInDate(),
+                b.getCheckOutDate()
+            );
             if (days == 0) days = 1;
 
-            double totalDailies = days * b.getDailyRate();
+            double sumDailyRates =
+                b.getRooms() != null
+                    ? b
+                          .getRooms()
+                          .stream()
+                          .mapToDouble(Booking.BookedRoom::getDailyRate)
+                          .sum()
+                    : 0;
+            double totalDailies = days * sumDailyRates;
             double totalConsumptions = 0;
 
             Stay stay = new Stay();
@@ -414,14 +545,18 @@ public class DataInitializer implements CommandLineRunner {
                 c.setProductName(p.getName());
                 c.setQuantity(RNG.nextInt(1, 4));
                 c.setUnitPrice(p.getPrice());
-                c.setRegisteredAt(stay.getCheckInAt().plusHours(RNG.nextInt(24)));
+                c.setRegisteredAt(
+                    stay.getCheckInAt().plusHours(RNG.nextInt(24))
+                );
 
                 boolean cancelled = RNG.nextInt(5) == 0;
                 if (cancelled) {
                     c.setDeliveryStatus(Stay.DeliveryStatus.CANCELLED);
                 } else {
                     c.setDeliveryStatus(Stay.DeliveryStatus.DELIVERED);
-                    c.setCompletedAt(stay.getCheckInAt().plusHours(RNG.nextInt(12, 48)));
+                    c.setCompletedAt(
+                        stay.getCheckInAt().plusHours(RNG.nextInt(12, 48))
+                    );
                 }
 
                 stay.getConsumptions().add(c);
@@ -436,7 +571,13 @@ public class DataInitializer implements CommandLineRunner {
 
             stayRepository.save(stay);
 
-            System.out.println("Estadia encerrada para reserva " + b.getId() + " (total: R$ " + stay.getGrandTotal() + ")");
+            System.out.println(
+                "Estadia encerrada para reserva " +
+                    b.getId() +
+                    " (total: R$ " +
+                    stay.getGrandTotal() +
+                    ")"
+            );
         }
     }
 
